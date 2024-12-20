@@ -61,7 +61,8 @@ ovs-vsctl add-port br0 ens33
 dhclient br0
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ovs-vsctl add-port br0 my-bridge
-
+ifmetric veth1 200
+ifmetric br0 0
 /ifmetric ens33 0
 /ifmetric veth1 10000
 
