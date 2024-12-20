@@ -6,6 +6,10 @@ add-apt-repository ppa:deadsnakes/ppa
 https://github.com/sinyuan1022/temp.git
 cd ./temp
 apt install python3.9 python3.9-distutils -y
+python3.9 get-pip.py
+pip install setuptools==67.6.1 
+pip install ryu docker
+pip install eventlet==0.30.2
 docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 
 
@@ -48,7 +52,7 @@ subnet 192.168.100.0 netmask 255.255.255.0 {
  
 systemctl restart isc-dhcp-server
 dhclient veth1
-dhclient my-bridge
+dhcpcd my-bridge
 
 ovs-vsctl add-br br0
 ifconfig ens33 0
@@ -57,8 +61,11 @@ ovs-vsctl add-port br0 ens33
 dhclient br0
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ovs-vsctl add-port br0 my-bridge
+
 /ifmetric ens33 0
 /ifmetric veth1 10000
+
+ryu-manager ovs2.py
 
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 docker run --rm -ti --name other --network my-dhcp-net dersimn/netutils tcpdump -i my-bridge0 dst net 192.168.100.0/24
