@@ -17,6 +17,7 @@ import hashlib
 import subprocess
 import re
 import readconfig as rc
+import getip 
 
 
 
@@ -83,8 +84,16 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                     out_port = self.mac_to_port[dpid][dst]
                 else:
                     out_port = ofproto.OFPP_FLOOD
-
                 actions = [parser.OFPActionOutput(out_port)]
+                if out_port != ofproto.OFPP_FLOOD:
+                    match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                    if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                        self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                        return
+                    else:
+                        self.add_flow(datapath, 1, match, actions)
+
+                
                 # , parser.OFPActionOutput(self.snort_port)
                 data = None
                 if msg.buffer_id == ofproto.OFP_NO_BUFFER:
@@ -117,19 +126,22 @@ class SimpleSwitchSnort(app_manager.RyuApp):
     def _dump_alert(self, ev):
         msg = ev.msg
         pkt = packet.Packet(msg.pkt)
-        tcp_pkt = pkt.get_protocol(tcp.tcp)
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         if (ipv4_pkt and ipv4_pkt.dst == self.localIP):
             pkt_hash = self.hash_packet(pkt)
             if pkt_hash is None:
                 print("Invalid packet format.")
                 return
-            print(f"error:\n{pkt}\n{datetime.now()}\n")
+            print(f"alert pkt:\n{pkt}\n{datetime.now()}\n")
             for i, (stored_hash, stored_pkt, timestamp) in enumerate(self.packet_store):
                 if stored_hash == pkt_hash:
                     self.packet_store.pop(i)
-                    #print(pkt)
                     print(f"Matching packet found: {pkt_hash}\n")
+                    datapath = stored_pkt.datapath
+                    in_port = stored_pkt.match['in_port']
+                    pkt = packet.Packet(stored_pkt.data)
+                    tcp_pkt = pkt.get_protocol(tcp.tcp)
+                    #self.handle_outgoing_packet(pkt, datapath, in_port, stored_pkt)
                     return
 
 
@@ -159,19 +171,20 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         datapath.send_msg(mod)
 
 
-    def handle_outgoing_packet(self, pkt, datapath, in_port, msg, target_port):
+    def handle_outgoing_packet(self, pkt, datapath, in_port, msg):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
+        icmp_pkt = pkt.get_protocol(icmp.icmp)
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
-        # Record the original IP and port for future incoming packets
-        #ip = dockerstart.start_container("cowrie/cowrie",ipv4_pkt.src,self.connection_ip)
-        target_ip = "192.168.1.135"
-        #self.connection_ip[ipv4_pkt.src]=ip
+
+        target_ip = getip.getcontainer_ip("ssh1")
+        target_port = self.docker_config[22]['target_port']
+        print(f"wwww{target_port}")
         self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
         self.logger.info("Outgoing SSH traffic: %s:%s -> %s:%s", 
-                         ipv4_pkt.src, tcp_pkt.src_port, 
-                         ipv4_pkt.dst, tcp_pkt.dst_port)
+                        ipv4_pkt.src, tcp_pkt.src_port, 
+                        ipv4_pkt.dst, tcp_pkt.dst_port)
         # Modify the destination IP and port to target IP and port
         actions = [
             parser.OFPActionSetField(ipv4_dst=target_ip),
@@ -184,7 +197,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             in_port=in_port, actions=actions, data=msg.data
         )
         datapath.send_msg(out)
-
+        
     def handle_incoming_packet(self, pkt, datapath, in_port, msg):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
@@ -221,13 +234,13 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         if tcp_pkt:
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
-                self.handle_outgoing_packet(pkt, datapath, in_port, msg, 2222)
+                self.handle_outgoing_packet(pkt, datapath, in_port, msg)
                 return
             if tcp_pkt.src_port == 2222 or tcp_pkt.src_port == 2223:
                 self.handle_incoming_packet(pkt, datapath, in_port, msg)
                 return
         if ipv4_pkt:
-            if ipv4_pkt.dst == "192.168.1.106" or ipv4_pkt.dst == "192.168.1.102":
+            if ipv4_pkt.dst == "192.168.127.135" or ipv4_pkt.src == "192.168.127.135":
                 datapath = msg.datapath
                 parser = datapath.ofproto_parser
                 ofproto = datapath.ofproto
@@ -247,7 +260,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                     out_port = self.mac_to_port[dpid][dst]
                 else:
                     out_port = ofproto.OFPP_FLOOD
-
                 actions = [parser.OFPActionOutput(out_port)]
                 data = None
                 if msg.buffer_id == ofproto.OFP_NO_BUFFER:

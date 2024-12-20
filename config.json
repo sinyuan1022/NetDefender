@@ -1,16 +1,16 @@
 {
   "containers": [
     {
-      "port": 22,
-      "image_name": ""
+      "port" : 22,
+      "image_name" : "cowrie/cowrie",
+      "target_port" : 2222,
+      "command" : ""
     },
     {
-      "port": 8081,
-      "image_name": "image_2"
-    },
-    {
-      "port": 8082,
-      "image_name": "image_3"
+      "port": 0,
+      "image_name": "dersimn/netutils",
+      "target_port" : 0,
+      "command" : "tcpdump -i my-bridge0 -w /tmp/capture.pcap"
     }
   ]
 }
