@@ -68,7 +68,7 @@ ovs-vsctl add-port br0 my-bridge
 ryu-manager ovs2.py
 
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
-docker run --rm -ti --name other --network my-dhcp-net dersimn/netutils tcpdump -i my-bridge0 dst net 192.168.100.0/24
+docker run --rm -ti --name other --network my-dhcp-net dersimn/netutils sh -c "tcpdump -i my-bridge0 dst \"$(hostname -I | awk '{print $1}')\""
 docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 
 
