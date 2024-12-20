@@ -60,7 +60,8 @@ ovs-vsctl add-port br0 my-bridge
 /ifmetric ens33 0
 /ifmetric veth1 10000
 
-
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
+docker run --rm -ti --name other --network my-dhcp-net dersimn/netutils tcpdump -i my-bridge0 dst net 192.168.100.0/24
+docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 
 
