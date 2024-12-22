@@ -141,7 +141,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                     in_port = stored_pkt.match['in_port']
                     pkt = packet.Packet(stored_pkt.data)
                     tcp_pkt = pkt.get_protocol(tcp.tcp)
-                    #self.handle_outgoing_packet(pkt, datapath, in_port, stored_pkt)
+                    self.alert_packet(pkt, datapath, in_port, stored_pkt)
                     return
 
 
@@ -170,22 +170,74 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-
-    def handle_outgoing_packet(self, pkt, datapath, in_port, msg):
+    def alert_packet(self, pkt, datapath, in_port, msg):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
+        eth = pkt.get_protocol(ethernet.ethernet)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
+        parser = datapath.ofproto_parser
+        ofproto = datapath.ofproto
+        
+        target_ip = getip.getcontainer_ip("other")
+        if tcp_pkt:
+            target_port = tcp_pkt.dst_port
+            self.logger.info("Outgoing SSH traffic: %s:%s -> %s:%s", 
+                            ipv4_pkt.src, tcp_pkt.src_port, 
+                            ipv4_pkt.dst, tcp_pkt.dst_port)
+        else:
+            new_ip_pkt = ipv4.ipv4(
+            dst=target_ip,
+            src=ipv4_pkt.src,
+            proto=ipv4_pkt.proto
+            )
+            new_pkt = packet.Packet()
+            new_pkt.add_protocol(ethernet.ethernet(
+                ethertype=eth.ethertype,
+                src=eth.src,
+                dst=eth.dst
+            ))
+            new_pkt.add_protocol(new_ip_pkt)
+            new_pkt.add_protocol(icmp_pkt)
+            new_pkt.serialize()
+
+            self.logger.info("Outgoing SSH traffic: %s -> %s", 
+                            ipv4_pkt.src, ipv4_pkt.dst)
+            self.logger.info("Redirecting to: %s", target_ip)
+            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+            out = parser.OFPPacketOut(
+                datapath=datapath,
+                buffer_id=ofproto.OFP_NO_BUFFER,
+                in_port=msg.match['in_port'],
+                actions=actions,
+                data=new_pkt.data
+            )
+            datapath.send_msg(out)
+            return
+        
+        actions = [
+            parser.OFPActionSetField(ipv4_dst=target_ip),
+            parser.OFPActionSetField(tcp_dst=target_port),
+            parser.OFPActionOutput(ofproto.OFPP_NORMAL)
+        ]
+        self.logger.info("Redirecting to: %s:%s", target_ip, target_port)
+        out = parser.OFPPacketOut(
+            datapath=datapath, buffer_id=msg.buffer_id,
+            in_port=in_port, actions=actions, data=msg.data
+        )
+        datapath.send_msg(out)
+
+    def ssh_packet(self, pkt, datapath, in_port, msg):
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
 
         target_ip = getip.getcontainer_ip("ssh1")
         target_port = self.docker_config[22]['target_port']
-        print(f"wwww{target_port}")
         self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
         self.logger.info("Outgoing SSH traffic: %s:%s -> %s:%s", 
                         ipv4_pkt.src, tcp_pkt.src_port, 
                         ipv4_pkt.dst, tcp_pkt.dst_port)
-        # Modify the destination IP and port to target IP and port
         actions = [
             parser.OFPActionSetField(ipv4_dst=target_ip),
             parser.OFPActionSetField(tcp_dst=target_port),
@@ -198,7 +250,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         )
         datapath.send_msg(out)
         
-    def handle_incoming_packet(self, pkt, datapath, in_port, msg):
+    def return_ssh_packet(self, pkt, datapath, in_port, msg):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         parser = datapath.ofproto_parser
@@ -226,24 +278,22 @@ class SimpleSwitchSnort(app_manager.RyuApp):
     def _packet_in_handler(self, ev):
         msg = ev.msg
         datapath = msg.datapath
-        #parser = datapath.ofproto_parser
-        #ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        ofproto = datapath.ofproto
         in_port = msg.match['in_port']
         pkt = packet.Packet(msg.data)
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         if tcp_pkt:
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
-                self.handle_outgoing_packet(pkt, datapath, in_port, msg)
+                self.ssh_packet(pkt, datapath, in_port, msg)
                 return
             if tcp_pkt.src_port == 2222 or tcp_pkt.src_port == 2223:
-                self.handle_incoming_packet(pkt, datapath, in_port, msg)
+                self.return_ssh_packet(pkt, datapath, in_port, msg)
                 return
         if ipv4_pkt:
-            if ipv4_pkt.dst == "192.168.127.135" or ipv4_pkt.src == "192.168.127.135":
+            if ipv4_pkt.dst == "192.168.254.134" or ipv4_pkt.src == "192.168.254.134":
                 datapath = msg.datapath
-                parser = datapath.ofproto_parser
-                ofproto = datapath.ofproto
                 in_port = msg.match['in_port']
                 pkt = packet.Packet(msg.data)
                 eth = pkt.get_protocols(ethernet.ethernet)[0]
