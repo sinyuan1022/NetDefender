@@ -1,7 +1,7 @@
 apt update
 apt upgrade -y
 add-apt-repository ppa:deadsnakes/ppa
-apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common git -y
+apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git -y
 git clone https://token@github.com/sinyuan1022/temp.git
 cd ./temp
 apt install python3.9 python3.9-distutils -y
