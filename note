@@ -59,7 +59,12 @@ ifconfig br0 0
 ovs-vsctl add-port br0 ens33
 dhclient br0
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
-ovs-vsctl add-port br0 veth0
+ovs-vsctl add-port br0 my-bridge
+
+iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 67 -j DROP
+iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 68 -j DROP
+iptables -A FORWARD -i my-bridge -o br0 -p udp --sport 67 -j DROP
+iptables -A FORWARD -i my-bridge -o br0 -p udp --sport 68 -j DROP
 
 iptables -A FORWARD -i br0 -o veth0 -p udp --dport 67 -j DROP
 iptables -A FORWARD -i br0 -o veth0 -p udp --dport 68 -j DROP
