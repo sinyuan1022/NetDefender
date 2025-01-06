@@ -4,7 +4,7 @@ first install ovs and docker
 ```bash
 apt update
 apt upgrade -y
-apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git -y
+apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
 add-apt-repository ppa:deadsnakes/ppa
 apt update
 git clone https://token@github.com/sinyuan1022/my-project.git
@@ -41,7 +41,8 @@ iptables -P FORWARD ACCEPT
 set dhcp-server NIC
 ```
 vim /etc/default/isc-dhcp-server
-INTERFACESv4="veth0"
+
+INTERFACESv4="veth0" #update
 ```
 ```
 vim /etc/dhcp/dhcpd.conf
@@ -62,19 +63,19 @@ subnet 192.168.100.0 netmask 255.255.255.0 {
   default-lease-time 600;
   max-lease-time 7200;
  }
- ```
+```
+get ip
+```
 systemctl restart isc-dhcp-server
 dhclient veth1
 dhcpcd my-bridge
-
-ovs-vsctl add-br br0
-ifconfig ens33 0
-ifconfig br0 0
-ovs-vsctl add-port br0 ens33
-dhclient br0
-ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
-ovs-vsctl add-port br0 my-bridge
-
+```
+set ovs
+```
+bash ./setovs.sh ens33 #ens33 is your NIC name
+```
+Disallow entry and exit of container for 67 and 68 areas
+```
 iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 67 -j DROP
 iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 68 -j DROP
 iptables -A FORWARD -i my-bridge -o br0 -p udp --sport 67 -j DROP
@@ -83,14 +84,20 @@ iptables -A FORWARD -i br0 -o veth0 -p udp --dport 67 -j DROP
 iptables -A FORWARD -i br0 -o veth0 -p udp --dport 68 -j DROP
 iptables -A FORWARD -i veth0 -o br0 -p udp --sport 67 -j DROP
 iptables -A FORWARD -i veth0 -o br0 -p udp --sport 68 -j DROP
+```
+Run Ryu
+```
+ryu-manager ovs.py # it is not run in background
 
-ifmetric veth1 200
-ifmetric br0 0
-/ifmetric ens33 0
-/ifmetric veth1 10000
-
-ryu-manager ovs2.py
-
+screen -dmS ryu ryu-manager ovs.py #it is run in background
+```
+set docker network
+```
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
-docker run --rm -ti --name other --network my-dhcp-net dersimn/netutils sh -c "tcpdump -i my-bridge0 dst \"$(hostname -I | awk '{print $1}')\""
+```
+run container(Later, change it to automation.)
+```
+docker run --rm --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/captures ubuntu:latest tcpdump -i my-bridge0 -w /captures/capture_$(date +%Y%m%d%H%M%S).pcap
+
 docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
+```
