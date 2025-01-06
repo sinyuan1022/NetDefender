@@ -20,5 +20,6 @@ ovs-vsctl add-port br0 $INTERFACE
 dhclient br0
 
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
+ovs-vsctl add-port br0 my-bridge
 
 echo "設置完成，網路介面 $INTERFACE 已成功配置"
