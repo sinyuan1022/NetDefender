@@ -1,6 +1,13 @@
+# System environment
+ryu server: Ubuntu22.04<br>
+snort server: Ubuntu22.04
+
+<font color=#ff0000>**# is for comments**</font>
+The background color is `#ffffff` for light mode and `#000000` for dark mode.
+
 # ryu server
 first install ovs and docker
-```bash
+```
 apt update
 apt upgrade -y
 apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
@@ -30,7 +37,7 @@ iptables -I FORWARD -o my-bridge -j ACCEPT
 enabling IPv4 Packet Forwarding
 ```
 vim /etc/sysctl.conf
-net.ipv4.ip_forward = 1 # add
+net.ipv4.ip_forward = 1 #updata
 ```
 apply changes
 ```
@@ -71,7 +78,7 @@ dhcpcd my-bridge
 ```
 set ovs
 ```
-bash ./setovs.sh ens33 #ens33 is your NIC name
+bash ./setovs.sh  #ens33 is your ryu server NIC name
 ```
 Disallow entry and exit of container for 67 and 68 areas
 ```
@@ -100,5 +107,40 @@ run container(Later, change it to automation.)
 docker run --rm --name other --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/captures ubuntu:latest tcpdump -i my-bridge0 -w /captures/capture_$(date +%Y%m%d%H%M%S).pcap
 docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 ```
+---
 # snort server
+install snort and python
+```
+apt install python3 python3-pip snort git vim net-tools -y
+git clone https://token@github.com/sinyuan1022/my-project.git
+cd ./my-project/snort
+
+ifconfig ens33 promisc #ens33 is your snort server NIC name
+```
+run snort 
+```
+#ens33 is your snort server NIC name
+snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf #it is not run in background
+
+screen -dmS snort snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf #it is run in background
+```
+set controller IP(run to background)
+```
+vim ./setting.py
+
+CONTROLLER_IP = '192.168.2.179' #change ryu server IP
+```
+
+set controller IP(not background)
+```
+vim ./pigrelay
+
+CONTROLLER_IP = '127.0.0.1' #change ryu server IP
+```
+run pigrelay
+```
+python3 pigrelay.py #it is not run in background
+
+python3 hpigrelay.py start #it is run in background
+```
 
