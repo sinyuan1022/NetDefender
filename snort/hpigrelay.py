@@ -3,7 +3,7 @@ import sys
 import time
 import socket
 import logging
-from Queue import Queue
+from queue import Queue
 from threading import Thread
 
 from daemon import Daemon
@@ -45,7 +45,7 @@ class SnortRelay():
         self.nwsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.nwsock.connect((CONTROLLER_IP, CONTROLLER_PORT))
-        except Exception, e:
+        except Exception as e:
             logger.info("Network socket connection error: %s" % e)
             sys.exit()
         logger.info("Network socket sending...")
@@ -80,7 +80,6 @@ class PigrelayDaemon(Daemon):
 
 if __name__ == '__main__':
     daemon = PigrelayDaemon('/tmp/daemon.pid')
-    # daemon.run()
     if len(sys.argv) == 2:
         if 'start' == sys.argv[1]:
             daemon.start()
@@ -89,9 +88,9 @@ if __name__ == '__main__':
         elif 'restart' == sys.argv[1]:
             daemon.restart()
         else:
-            print "Unknown command"
+            print("Unknown command")
             sys.exit(2)
             sys.exit(0)
     else:
-        print "usage: %s start|stop|restart" % sys.argv[0]
+        print(f"usage:{ sys.argv[0] }start|stop|restart")
         sys.exit(2)

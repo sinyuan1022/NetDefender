@@ -33,7 +33,7 @@ class SnortListener():
         self.nwsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.nwsock.connect((CONTROLLER_IP, CONTROLLER_PORT))
-        except Exception, e:
+        except Exception as e:
             logger.info("Network socket connection error: %s" % e)
             sys.exit(1)
 
