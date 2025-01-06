@@ -2,8 +2,7 @@
 ryu server: Ubuntu22.04<br>
 snort server: Ubuntu22.04
 
-<font color=#ff0000>**# is for comments**</font>
-The background color is `#ffffff` for light mode and `#000000` for dark mode.
+## !!! # is for comments
 
 # ryu server
 first install ovs and docker
@@ -59,7 +58,7 @@ option domain-name-servers ns1.example.org, ns2.example.org;
 default-lease-time 600;
 max-lease-time 7200;
 
-#Add the following code where the previous code was deleted
+# Add the following code where the previous code was deleted
 subnet 192.168.100.0 netmask 255.255.255.0 {
   range 192.168.100.2 192.168.100.254; 
   option subnet-mask 255.255.255.0;
@@ -93,9 +92,9 @@ iptables -A FORWARD -i veth0 -o br0 -p udp --sport 68 -j DROP
 ```
 Run Ryu
 ```
-ryu-manager ovs.py # it is not run in background
+ryu-manager ovs.py   #it is not run in background
 
-screen -dmS ryu ryu-manager ovs.py #it is run in background
+screen -dmS ryu ryu-manager ovs.py   #it is run in background
 ```
 set docker network
 ```
@@ -115,32 +114,32 @@ apt install python3 python3-pip snort git vim net-tools -y
 git clone https://token@github.com/sinyuan1022/my-project.git
 cd ./my-project/snort
 
-ifconfig ens33 promisc #ens33 is your snort server NIC name
+ifconfig ens33 promisc   #ens33 is your snort server NIC name
 ```
 run snort 
 ```
-#ens33 is your snort server NIC name
-snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf #it is not run in background
+# ens33 is your snort server NIC name
+snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
 
-screen -dmS snort snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf #it is run in background
+screen -dmS snort snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
 ```
 set controller IP(run to background)
 ```
 vim ./setting.py
 
-CONTROLLER_IP = '192.168.2.179' #change ryu server IP
+CONTROLLER_IP = '192.168.2.179'   #change ryu server IP
 ```
 
 set controller IP(not background)
 ```
 vim ./pigrelay
 
-CONTROLLER_IP = '127.0.0.1' #change ryu server IP
+CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 ```
 run pigrelay
 ```
-python3 pigrelay.py #it is not run in background
+python3 pigrelay.py   #it is not run in background
 
-python3 hpigrelay.py start #it is run in background
+python3 hpigrelay.py start   #it is run in background
 ```
 
