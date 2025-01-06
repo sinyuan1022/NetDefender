@@ -1,4 +1,4 @@
-#ryu server
+# ryu server
 first install ovs and docker
 ```bash
 apt update
@@ -96,7 +96,9 @@ docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 
 ```
 run container(Later, change it to automation.)
 ```
-docker run --rm --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/captures ubuntu:latest tcpdump -i my-bridge0 -w /captures/capture_$(date +%Y%m%d%H%M%S).pcap
-
+#Use two terminals to run
+docker run --rm --name other --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/captures ubuntu:latest tcpdump -i my-bridge0 -w /captures/capture_$(date +%Y%m%d%H%M%S).pcap
 docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 ```
+# snort server
+
