@@ -4,7 +4,7 @@ snort server: Ubuntu22.04
 
 ## !!! # is for comments
 
-# ryu server
+# Ryu server
 first install ovs and docker
 ```
 apt update
@@ -107,7 +107,7 @@ docker run --rm --name other --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/ca
 docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 ```
 ---
-# snort server
+# Snort server
 install snort and python
 ```
 apt install python3 python3-pip snort git vim net-tools -y
