@@ -132,7 +132,7 @@ CONTROLLER_IP = '192.168.2.179'   #change ryu server IP
 
 set controller IP(not background)
 ```
-vim ./pigrelay
+vim ./pigrelay.py
 
 CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 ```
