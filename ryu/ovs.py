@@ -56,7 +56,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
 
     def initialize_services(self):
         """初始化所有服務的容器管理"""
-        for i, port, configs in enumerate(self.docker_config.items()):
+        for i, (port, configs) in enumerate(self.docker_config.items()):
             service_name = f"{configs[i]['name']}"
             self.container_status[service_name] = {}
             self.ip_container_map[service_name] = {}
