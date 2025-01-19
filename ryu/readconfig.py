@@ -12,6 +12,7 @@ def config():
                 container_info = {
                     'image_name': container['image_name'],
                     'target_port': container['target_port'],
+                    'name': container['name'],
                     'command': container['command'],
                     'multi': container['multi']
                 }
