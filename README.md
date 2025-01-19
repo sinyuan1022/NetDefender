@@ -121,9 +121,9 @@ ifconfig ens33 promisc   #ens33 is your snort server NIC name
 run snort 
 ```
 # ens33 is your snort server NIC name
-snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
+snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
 
-screen -dmS snort snort -i eth33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
+screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
 ```
 set controller IP(run to background)
 ```
