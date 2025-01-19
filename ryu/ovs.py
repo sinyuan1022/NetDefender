@@ -8,7 +8,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import ether_types
 from ryu.lib.packet import icmp
-from ryu.lib import snortlib
+import snortlib
 from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp, arp
 from ryu.ofproto import ether, inet
 from ryu.lib import hub
@@ -284,7 +284,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
-        if tcp_pkt:
+        if tcp_pkt and ipv4_pkt.dst != "192.168.254.1" and ipv4_pkt.src != "192.168.254.1":
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
                 self.ssh_packet(pkt, datapath, in_port, msg)
                 return
@@ -292,7 +292,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                 self.return_ssh_packet(pkt, datapath, in_port, msg)
                 return
         if ipv4_pkt:
-            if ipv4_pkt.dst == "192.168.254.134" or ipv4_pkt.src == "192.168.254.134":
+            if ipv4_pkt.dst == snortlib.snortip or ipv4_pkt.src == snortlib.snortip:
                 datapath = msg.datapath
                 in_port = msg.match['in_port']
                 pkt = packet.Packet(msg.data)
