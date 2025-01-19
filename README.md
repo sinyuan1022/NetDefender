@@ -17,7 +17,7 @@ cd ./my-project/ryu/
 apt install python3.9 python3.9-distutils -y
 python3.9 get-pip.py
 pip install setuptools==67.6.1 
-pip install ryu docker
+pip install ryu docker scapy
 pip install eventlet==0.30.2
 docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 python3.9 imagecheck.py
