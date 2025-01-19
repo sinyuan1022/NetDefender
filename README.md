@@ -110,6 +110,8 @@ docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
 # Snort server
 install snort and python
 ```
+apt update
+apt upgrade -y
 apt install python3 python3-pip snort git vim net-tools -y
 git clone https://token@github.com/sinyuan1022/my-project.git
 cd ./my-project/snort
