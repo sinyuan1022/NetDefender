@@ -12,7 +12,7 @@ apt upgrade -y
 apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
 add-apt-repository ppa:deadsnakes/ppa
 apt update
-git clone https://token@github.com/sinyuan1022/my-project.git
+git clone https://github.com/sinyuan1022/my-project.git
 cd ./my-project/ryu/
 apt install python3.9 python3.9-distutils -y
 python3.9 get-pip.py
@@ -113,7 +113,7 @@ install snort and python
 apt update
 apt upgrade -y
 apt install python3 python3-pip snort git vim net-tools -y
-git clone https://token@github.com/sinyuan1022/my-project.git
+git clone https://github.com/sinyuan1022/my-project.git
 cd ./my-project/snort
 
 ifconfig ens33 promisc   #ens33 is your snort server NIC name
