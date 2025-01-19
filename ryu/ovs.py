@@ -41,7 +41,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         socket_config = {'unixsock': False}
         self.dockerid = {}
         self.docker_config = rc.config()
-        print(self.docker_config)
         self.packet_store = []
         self.monitor_thread = hub.spawn(self._monitor)
         self.container_monitor = hub.spawn(self._container_monitor)
@@ -58,6 +57,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
 
     def initialize_services(self):
         """初始化所有服務的容器管理"""
+        print(self.docker_config)
         for port, configs in self.docker_config.items():
             service_name = f"{configs['name']}"
             self.container_status[service_name] = {}
