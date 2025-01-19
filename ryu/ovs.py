@@ -41,6 +41,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         socket_config = {'unixsock': False}
         self.dockerid = {}
         self.docker_config = rc.config()
+        print(self.docker_config)
         self.packet_store = []
         self.monitor_thread = hub.spawn(self._monitor)
         self.container_monitor = hub.spawn(self._container_monitor)
