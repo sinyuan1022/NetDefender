@@ -58,12 +58,12 @@ class SimpleSwitchSnort(app_manager.RyuApp):
     def initialize_services(self):
         """初始化所有服務的容器管理"""
         for port, configs in self.docker_config.items():
-            service_name = f"{configs["name"]}0"
+            service_name = f"{configs['name']}"
             self.container_status[service_name] = {}
             self.ip_container_map[service_name] = {}
 
             # 為每個服務創建主要容器
-            primary_container = f"{service_name}_0"
+            primary_container = f"{service_name}0"
             self.container_status[service_name][primary_container] = {
                 "last_used": datetime.now(),
                 "ip": None,
