@@ -25,6 +25,7 @@ from scapy.utils import wrpcap
 from newcontainer import *
 from stopcontainer import *
 import os
+import docker
 
 
 class SimpleSwitchSnort(app_manager.RyuApp):
@@ -48,6 +49,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         self.snort.start_socket_server()
         self.dockerstart = dockerstart.start()
 
+        self.docker_client = docker.from_env()
         self.container_monitor = hub.spawn(self._container_monitor)
         self.container_status = {}  # {service_name: {container_name: {"last_used": timestamp, "ip": client_ip}}}
         self.ip_container_map = {}  # {service_name: {client_ip: container_name}}
