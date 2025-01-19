@@ -367,7 +367,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             self.container_status[service_name][container_name]["last_used"] = datetime.now()
 
         # 獲取容器 IP
-        target_ip = self.get_container_ip(container_name)
+        target_ip = getip.getcontainer_ip(container_name)
         if not target_ip:
             self.logger.error(f"Could not get IP for container {container_name}")
             return
