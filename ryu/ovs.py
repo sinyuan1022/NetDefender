@@ -57,18 +57,24 @@ class SimpleSwitchSnort(app_manager.RyuApp):
     def initialize_services(self):
         """初始化所有服務的容器管理"""
         for i, (port, configs) in enumerate(self.docker_config.items()):
-            service_name = f"{configs[i]['name']}"
+            service_name = configs[0].get('name', f'service_{port}')
             self.container_status[service_name] = {}
             self.ip_container_map[service_name] = {}
-
-            # 為每個服務創建主要容器
-            primary_container = f"{service_name}0"
-            self.container_status[service_name][primary_container] = {
-                "last_used": datetime.now(),
-                "ip": None,
-                "is_primary": True,
-                "config": configs[0]  # 保存容器配置信息
-            }
+            
+            # 檢查容器是否已經運行
+            container_name = f"{service_name}0"
+            existing_containers = self.docker_client.containers.list(
+                filters={"name": container_name}
+            )
+            
+            if existing_containers:
+                # 如果容器已存在，更新狀態
+                self.container_status[service_name][container_name] = {
+                    "last_used": datetime.now(),
+                    "ip": None,
+                    "is_primary": True,
+                    "config": configs[0]
+                }
 
 
 
@@ -133,30 +139,35 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                 datapath.send_msg(out)
             hub.sleep(0.05)
 
-    def _container_monitor(self):
-        """監控所有服務的容器使用狀況"""
+   def _container_monitor(self):
+        """監控容器使用狀況"""
         while True:
             current_time = datetime.now()
-
+            
             for service_name, containers in self.container_status.items():
-                containers_to_remove = []
-
                 for container_name, status in containers.items():
-                    # 跳過主要容器
-                    if status.get("is_primary", False):
-                        continue
-
-                    if (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
-                        containers_to_remove.append((container_name, status["ip"]))
-
-                # 清理超時的容器
-                for container_name, ip in containers_to_remove:
-                    self.logger.info(f"Container {container_name} timed out. Cleaning up...")
-                    if ip in self.ip_container_map[service_name]:
-                        del self.ip_container_map[service_name][ip]
-                    del self.container_status[service_name][container_name]
-                    stop_container(container_name,self.container_status)
-
+                    # 更新容器狀態
+                    try:
+                        container = self.docker_client.containers.get(container_name)
+                        if container.status != "running":
+                            # 如果是主要容器且沒在運行，重啟它
+                            if status.get("is_primary", False):
+                                self.logger.info(f"Restarting primary container {container_name}")
+                                container.restart()
+                            else:
+                                # 如果是非主要容器且超時，移除它
+                                if (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
+                                    self.logger.info(f"Removing inactive container {container_name}")
+                                    container.remove(force=True)
+                                    del self.container_status[service_name][container_name]
+                                    if status["ip"] in self.ip_container_map[service_name]:
+                                        del self.ip_container_map[service_name][status["ip"]]
+                    except docker.errors.NotFound:
+                        # 如果容器不存在且是主要容器，重新創建
+                        if status.get("is_primary", False):
+                            self.logger.info(f"Recreating primary container {container_name}")
+                            self.start_new_container(service_name, status["config"])
+            
             hub.sleep(10)
 
     def get_available_container(self, client_ip, port):
@@ -335,73 +346,45 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    def get_available_container(self, client_ip, port):
-        """為指定服務和客戶端 IP 分配容器"""
-        service_name = f"port_{port}"
-        if service_name not in self.container_status:
-            self.logger.error(f"Unknown service for port {port}")
-            return None
-
-        # 如果該 IP 已有指定的容器
-        if client_ip in self.ip_container_map[service_name]:
-            container_name = self.ip_container_map[service_name][client_ip]
-            if container_name in self.container_status[service_name]:
-                self.update_container_timestamp(service_name, container_name)
-                return container_name, self.container_status[service_name][container_name]["config"]
-
-        # 檢查是否可以使用主要容器
-        primary_container = f"{service_name}_0"
-        if self.container_status[service_name][primary_container]["ip"] is None:
-            self.container_status[service_name][primary_container]["ip"] = client_ip
-            self.ip_container_map[service_name][client_ip] = primary_container
-            self.update_container_timestamp(service_name, primary_container)
-            return primary_container, self.container_status[service_name][primary_container]["config"]
-
-        # 檢查服務是否支持多個容器
-        service_config = self.docker_config[port][0]
-        if service_config['multi'] == 'no':
-            # 如果服務不支持多容器，使用現有容器
-            return primary_container, service_config
-
-        # 創建新的容器
-        new_container_name = f"{service_name}_{len(self.container_status[service_name])}"
-        if start_new_container(new_container_name, service_config):
-            self.ip_container_map[service_name][client_ip] = new_container_name
-            self.container_status[service_name][new_container_name] = {
-                "last_used": datetime.now(),
-                "ip": client_ip,
-                "is_primary": False,
-                "config": service_config
-            }
-            return new_container_name, service_config
-
-        return None, None
     def handle_service_packet(self, pkt, datapath, in_port, msg, dst_port):
-        """處理各種服務的封包"""
+        """處理服務封包"""
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
 
-        container_name, config = self.get_available_container(ipv4_pkt.src, dst_port)
-        if not container_name or not config:
-            self.logger.error(f"No available container for IP: {ipv4_pkt.src} on port {dst_port}")
+        # 獲取服務配置
+        service_config = self.docker_config.get(dst_port, [{}])[0]
+        service_name = service_config.get('name', f'service_{dst_port}')
+        
+        # 獲取容器名稱
+        container_name = f"{service_name}0"  # 使用主要容器
+        
+        # 更新使用時間
+        if service_name in self.container_status and container_name in self.container_status[service_name]:
+            self.container_status[service_name][container_name]["last_used"] = datetime.now()
+
+        # 獲取容器 IP
+        target_ip = self.get_container_ip(container_name)
+        if not target_ip:
+            self.logger.error(f"Could not get IP for container {container_name}")
             return
 
-        target_ip = getip.getcontainer_ip(container_name)
-        target_port = config['target_port']
+        # 設置目標端口
+        target_port = service_config.get('target_port', dst_port)
 
+        # 建立連接映射
         self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
-
+        
         self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
-                         f"{ipv4_pkt.dst}:{tcp_pkt.dst_port} (Container: {container_name})")
-
+                        f"{target_ip}:{target_port} (Container: {container_name})")
+        
         actions = [
             parser.OFPActionSetField(ipv4_dst=target_ip),
             parser.OFPActionSetField(tcp_dst=target_port),
             parser.OFPActionOutput(ofproto.OFPP_NORMAL)
         ]
-
+        
         out = parser.OFPPacketOut(
             datapath=datapath, buffer_id=msg.buffer_id,
             in_port=in_port, actions=actions, data=msg.data
