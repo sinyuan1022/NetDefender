@@ -43,7 +43,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         self.docker_config = rc.config()
         self.packet_store = []
         self.monitor_thread = hub.spawn(self._monitor)
-        self.container_monitor = hub.spawn(self._container_monitor)
         self.localIP = self.get_ip_address('br0')
         self.snort.set_config(socket_config)
         self.snort.start_socket_server()
