@@ -1,30 +1,33 @@
 import docker
-import subprocess
-import time
+import json
 
 
-
-def start_container(image_name,sip,allip):
+def start_containers(config):
     client = docker.from_env()
-    try:
-        client.ping()
-        print("Docker is running.")
-    except docker.errors.DockerException:
-        print("Docker is not running. Please start the Docker service.")
-        return
-    try:
-        container = client.containers.get(ip)
-        print(f"Container '{container.name}' started with ID: {container.id}")
-        container.reload()
-        ip_address = container.attrs['NetworkSettings']['IPAddress']
-        print(f"Container IP Address: {ip_address}")
-        return ip_address
-    except docker.errors.NotFound:
-        container = client.containers.run(image_name,name=ip,network="none",tty=True,detach=True)
-        print(f"Container '{container.name}' started with ID: {container.id}")
-        container.reload()
-        ip_address = container.attrs['NetworkSettings']['IPAddress']
-        print(f"Container IP Address: {ip_address}")
-        return ip_address
-    except docker.errors.APIError as e:
-        print(f"Failed to start container: {e}")
+    containers = config.get("containers", [])
+
+    for container in containers:
+        image_name = container.get("image_name")
+        command = container.get("command", "")
+        name = container.get("name")
+
+        existing_containers = client.containers.list(filters={"name": name}) if name else []
+        if existing_containers:
+            print(f"Container {name} is already running.")
+            continue
+
+        print(f"Starting container {container.get('image_name')}...")
+
+        client.containers.run(
+            image_name,
+            command=command if command else None,
+            detach=True,
+            network="my-dhcp-net",
+            name= f"{name}0"
+        )
+    print("All containers started.")
+
+def start():
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+        start_containers(config)

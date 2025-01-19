@@ -17,7 +17,9 @@ import hashlib
 import subprocess
 import re
 import readconfig as rc
-import getip 
+import dockerstart
+import getip
+import imagecheck
 
 
 
@@ -40,6 +42,8 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         self.localIP = self.get_ip_address('br0')
         self.snort.set_config(socket_config)
         self.snort.start_socket_server()
+        self.image_check = imagecheck.pullimage()
+        self.docker_start = dockerstart.start()
 
 
 

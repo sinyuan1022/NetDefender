@@ -3,12 +3,14 @@
     {
       "port" : 22,
       "image_name" : "cowrie/cowrie",
+      "name" : "ssh",
       "target_port" : 2222,
       "command" : ""
     },
     {
       "port": 0,
       "image_name": "dersimn/netutils",
+      "name" : "other",
       "target_port" : 0,
       "command" : "tcpdump -i my-bridge0 -w /tmp/capture.pcap"
     }
