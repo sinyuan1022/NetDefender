@@ -226,7 +226,31 @@ class SimpleSwitchSnort(app_manager.RyuApp):
 
 
     @set_ev_cls(snortlib.EventAlert, MAIN_DISPATCHER)
-    def alert_packet(self, pkt, datapath, in_port, msg):
+    def _dump_alert(self, ev):
+        msg = ev.msg
+        pkt = packet.Packet(msg.pkt)
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        if (ipv4_pkt and ipv4_pkt.dst == self.localIP):
+            pkt_hash = self.hash_packet(pkt)
+            if pkt_hash is None:
+                print("Invalid packet format.")
+                return
+            print(f"alert pkt:\n{pkt}\n{datetime.now()}\n")
+            for i, (stored_hash, stored_pkt, timestamp) in enumerate(self.packet_store):
+                if stored_hash == pkt_hash:
+                    self.packet_store.pop(i)
+                    print(f"Matching packet found: {pkt_hash}\n")
+                    datapath = stored_pkt.datapath
+                    in_port = stored_pkt.match['in_port']
+                    pkt = packet.Packet(stored_pkt.data)
+                    tcp_pkt = pkt.get_protocol(tcp.tcp)
+                    if tcp_pkt.dst_port in self.docker_config:
+                        self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
+                        return
+            self.alert_packet(pkt)
+            return
+
+    def alert_packet(self, pkt):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         eth = pkt.get_protocol(ethernet.ethernet)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
@@ -237,29 +261,47 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         target_ip = getip.getcontainer_ip("other")
 
 
-        # Create a new packet
-        new_ip_pkt = ipv4.ipv4(
-            dst=target_ip,
-            src=ipv4_pkt.src,
-            proto=ipv4_pkt.proto
-        )
         new_pkt = packet.Packet()
-        new_pkt.add_protocol(ethernet.ethernet(
-            ethertype=eth.ethertype,
-            src=eth.src,
-            dst=eth.dst
-        ))
-        new_pkt.add_protocol(new_ip_pkt)
-        new_pkt.add_protocol(icmp_pkt)
+        if eth:
+            new_pkt.add_protocol(ethernet.ethernet(
+                ethertype=eth.ethertype,
+                src=eth.src,
+                dst=eth.dst
+            ))
+            scapy_pkt = Ether(src=eth.src, dst=eth.dst, type=eth.ethertype)
+        if ipv4_pkt :
+            new_ip_pkt = ipv4.ipv4(
+                dst=target_ip,
+                src=ipv4_pkt.src,
+                proto=ipv4_pkt.proto
+            )
+            self.logger.info("Outgoing SSH traffic: %s -> %s",
+                             ipv4_pkt.src, ipv4_pkt.dst)
+            new_pkt.add_protocol(new_ip_pkt)
+            if eth:
+                scapy_pkt = Ether(src=eth.src, dst=eth.dst, type=eth.ethertype) / \
+                            IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto)
+            else:
+                scapy_pkt = IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto)
+        if icmp_pkt:
+            new_pkt.add_protocol(icmp_pkt)
+            if eth and ipv4_pkt:
+                scapy_pkt =Ether(src=eth.src, dst=eth.dst, type=eth.ethertype) / \
+                            IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto) / \
+                            ICMP(type=icmp_pkt.type, code=icmp_pkt.code)
+            elif eth:
+                scapy_pkt = Ether(src=eth.src, dst=eth.dst, type=eth.ethertype) / \
+                            ICMP(type=icmp_pkt.type, code=icmp_pkt.code)
+            elif ipv4_pkt:
+                scapy_pkt = IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto) / \
+                            ICMP(type=icmp_pkt.type, code=icmp_pkt.code)
+            else:
+                scapy_pkt =ICMP(type=icmp_pkt.type, code=icmp_pkt.code)
         new_pkt.serialize()
 
-        self.logger.info("Outgoing SSH traffic: %s -> %s",
-                         ipv4_pkt.src, ipv4_pkt.dst)
+
         self.logger.info("Redirecting to: %s", target_ip)
 
-        scapy_pkt = Ether(src=eth.src, dst=eth.dst, type=eth.ethertype) / \
-                    IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto) / \
-                    ICMP(type=icmp_pkt.type, code=icmp_pkt.code)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         pcap_filename = os.path.join(output_dir, f"alert_packet_{timestamp}.pcap")
