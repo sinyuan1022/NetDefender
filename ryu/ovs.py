@@ -19,7 +19,6 @@ import re
 import readconfig as rc
 import dockerstart
 import getip
-import imagecheck
 
 
 
@@ -42,7 +41,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         self.localIP = self.get_ip_address('br0')
         self.snort.set_config(socket_config)
         self.snort.start_socket_server()
-        self.image_check = imagecheck.pullimage()
         self.docker_start = dockerstart.start()
 
 
@@ -295,8 +293,8 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             if tcp_pkt.src_port == 2222 or tcp_pkt.src_port == 2223:
                 self.return_ssh_packet(pkt, datapath, in_port, msg)
                 return
-        if ipv4_pkt:
-            if ipv4_pkt.dst == snortlib.snortip or ipv4_pkt.src == snortlib.snortip:
+        if ipv4_pkt and self.snort.getsnortip():
+            if ipv4_pkt.dst == self.snort.getsnortip() or ipv4_pkt.src == self.snort.getsnortip():
                 datapath = msg.datapath
                 in_port = msg.match['in_port']
                 pkt = packet.Packet(msg.data)
@@ -351,7 +349,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
-        # , parser.OFPActionOutput(self.snort_port)
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
