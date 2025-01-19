@@ -30,4 +30,6 @@ def start_containers(config):
 def start():
     with open('config.json', 'r') as f:
         config = json.load(f)
-        start_containers(config)
+        name = start_containers(config)
+
+    return name

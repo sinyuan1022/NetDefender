@@ -2,19 +2,22 @@ import json
 
 def config():
     try:
-        # 读取配置文件
         with open('config.json', 'r') as f:
             config = json.load(f)
 
-        # 构建端口到详细容器信息的映射
-        port_to_container = {
-            container['port']: {
-                'image_name': container['image_name'],
-                'target_port': container['target_port']
-            }
-            for container in config.get('containers', [])
-            if 'port' in container and 'image_name' in container
-        }
+        port_to_container = {}
+        for container in config.get('containers', []):
+            if 'port' in container and 'image_name' in container:
+                port = container['port']
+                container_info = {
+                    'image_name': container['image_name'],
+                    'target_port': container['target_port'],
+                    'command': container['command'],
+                    'multi': container['multi']
+                }
+                if port not in port_to_container:
+                    port_to_container[port] = []
+                port_to_container[port].append(container_info)
 
         return port_to_container
 
