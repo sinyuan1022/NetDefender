@@ -20,6 +20,7 @@ pip install setuptools==67.6.1
 pip install ryu docker
 pip install eventlet==0.30.2
 docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
+python3.9 imagecheck.py
 ```
 set Virtual NIC
 ```
