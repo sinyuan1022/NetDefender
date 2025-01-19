@@ -70,15 +70,15 @@ subnet 192.168.100.0 netmask 255.255.255.0 {
   max-lease-time 7200;
  }
 ```
+set ovs
+```
+bash ./setovs.sh ens33  #ens33 is your ryu server NIC name
+```
 get ip
 ```
 systemctl restart isc-dhcp-server
 dhclient veth1
 dhcpcd my-bridge
-```
-set ovs
-```
-bash ./setovs.sh ens33  #ens33 is your ryu server NIC name
 ```
 Disallow entry and exit of container for 67 and 68 areas
 ```
