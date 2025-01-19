@@ -431,7 +431,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
                 self.handle_service_packet(pkt, msg.datapath, msg.match['in_port'], msg, tcp_pkt.dst_port)
                 return
-            original_src = self.connection_map.get((ipv4_pkt.dst, tcp_pkt.dst_port))
+            original_src = self.connection_map.get((ipv4_pkt.src, tcp_pkt.src_port))
             if original_src:
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
