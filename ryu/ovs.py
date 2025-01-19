@@ -244,9 +244,10 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                     in_port = stored_pkt.match['in_port']
                     pkt = packet.Packet(stored_pkt.data)
                     tcp_pkt = pkt.get_protocol(tcp.tcp)
-                    if tcp_pkt.dst_port in self.docker_config:
-                        self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
-                        return
+                    if tcp_pkt:
+                        if tcp_pkt.dst_port in self.docker_config:
+                            self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
+                            return
             self.alert_packet(pkt)
             return
 
