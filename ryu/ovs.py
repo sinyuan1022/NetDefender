@@ -431,11 +431,9 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
                 self.handle_service_packet(pkt, msg.datapath, msg.match['in_port'], msg, tcp_pkt.dst_port)
                 return
-            for i, (port, configs) in enumerate(self.docker_config.items()):
-                service_port = configs[i].get('target_port')
-                if service_port == tcp_pkt.src_port:
-                    self.return_packet(pkt, datapath, in_port, msg)
-                    return
+            if tcp_pkt.src_port == 2222 or tcp_pkt.src_port == 2223:
+                self.return_packet(pkt, datapath, in_port, msg)
+                return
         if ipv4_pkt and self.snort.getsnortip():
             if ipv4_pkt.dst == self.snort.getsnortip() or ipv4_pkt.src == self.snort.getsnortip():
                 datapath = msg.datapath
