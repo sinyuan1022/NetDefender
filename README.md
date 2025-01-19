@@ -90,15 +90,15 @@ iptables -A FORWARD -i br0 -o veth0 -p udp --dport 68 -j DROP
 iptables -A FORWARD -i veth0 -o br0 -p udp --sport 67 -j DROP
 iptables -A FORWARD -i veth0 -o br0 -p udp --sport 68 -j DROP
 ```
+set docker network
+```
+docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
+```
 Run Ryu
 ```
 ryu-manager ovs.py   #it is not run in background
 
 screen -dmS ryu ryu-manager ovs.py   #it is run in background
-```
-set docker network
-```
-docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 ```
 run container(Later, change it to automation.)
 ```
