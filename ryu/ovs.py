@@ -168,7 +168,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                         # 如果容器不存在且是主要容器，重新創建
                         if status.get("is_primary", False):
                             self.logger.info(f"Recreating primary container {container_name}")
-                            self.start_new_container(service_name, status["config"])
+                            start_new_container(service_name, status["config"])
             
             hub.sleep(10)
 
