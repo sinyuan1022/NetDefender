@@ -6,7 +6,8 @@
       "name" : "ssh",
       "target_port" : 2222,
       "command" : "",
-      "multi" : "no"
+      "multi" : "no",
+      "max" : 10 
     }
   ]
 }
