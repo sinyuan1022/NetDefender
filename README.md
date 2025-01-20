@@ -104,8 +104,7 @@ screen -dmS ryu ryu-manager ovs.py   #it is run in background
 run container(Later, change it to automation.)
 ```
 #Use two terminals to run
-docker run --rm --name other --net=my-dhcp-net --cap-add=NET_ADMIN -v $(pwd):/captures ubuntu:latest tcpdump -i my-bridge0 -w /captures/capture_$(date +%Y%m%d%H%M%S).pcap
-docker run --rm -ti --name ssh1 --network my-dhcp-net cowrie/cowrie
+docker run --rm -ti --name ssh0 --network my-dhcp-net cowrie/cowrie
 ```
 ---
 # Snort server
