@@ -9,7 +9,8 @@ first install ovs and docker
 ```
 apt update
 apt upgrade -y
-apt install openvswitch-switch docker.io vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
+apt install openvswitch-switch vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
+apt install docker.io=20.10.21-0ubuntu1~22.04.3 -y
 add-apt-repository ppa:deadsnakes/ppa
 apt update
 git clone https://github.com/sinyuan1022/my-project.git
