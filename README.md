@@ -9,7 +9,7 @@ first install ovs and docker
 ```
 apt update
 apt upgrade -y
-apt install openvswitch-switch vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common isc-dhcp-client git screen -y
+apt install openvswitch-switch vim net-tools isc-dhcp-server iptables-persistent dhcpcd5 htop ifmetric software-properties-common git screen dnsmasq -y
 apt install docker.io=20.10.21-0ubuntu1~22.04.3 -y
 add-apt-repository ppa:deadsnakes/ppa
 apt update
@@ -79,18 +79,7 @@ get ip
 ```
 systemctl restart isc-dhcp-server
 dhclient veth1
-dhcpcd my-bridge
-```
-Disallow entry and exit of container for 67 and 68 areas
-```
-iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 67 -j DROP
-iptables -A FORWARD -i br0 -o my-bridge -p udp --dport 68 -j DROP
-iptables -A FORWARD -i my-bridge -o br0 -p udp --sport 67 -j DROP
-iptables -A FORWARD -i my-bridge -o br0 -p udp --sport 68 -j DROP
-iptables -A FORWARD -i br0 -o veth0 -p udp --dport 67 -j DROP
-iptables -A FORWARD -i br0 -o veth0 -p udp --dport 68 -j DROP
-iptables -A FORWARD -i veth0 -o br0 -p udp --sport 67 -j DROP
-iptables -A FORWARD -i veth0 -o br0 -p udp --sport 68 -j DROP
+dhclient my-bridge
 ```
 set docker network
 ```
