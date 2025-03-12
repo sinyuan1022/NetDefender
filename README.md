@@ -50,6 +50,7 @@ set dhcp-server
 vim /etc/dnsmasq.conf
 interface=veth0 #veth0 is your dhcp NIC name
 except-interface=*
+bind-interfaces
 dhcp-range=192.168.100.2,192.168.100.254,255.255.255.0,1h
 ```
 set ovs
