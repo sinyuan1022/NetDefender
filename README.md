@@ -45,31 +45,12 @@ apply changes
 sysctl -p
 iptables -P FORWARD ACCEPT
 ```
-set dhcp-server NIC
+set dhcp-server 
 ```
-vim /etc/default/isc-dhcp-server
-
-INTERFACESv4="veth0" #update
-```
-```
-vim /etc/dhcp/dhcpd.conf
-
-# Delete the following four lines from the original code
-option domain-name "example.org"; 
-option domain-name-servers ns1.example.org, ns2.example.org;
-default-lease-time 600;
-max-lease-time 7200;
-
-# Add the following code where the previous code was deleted
-subnet 192.168.100.0 netmask 255.255.255.0 {
-  range 192.168.100.2 192.168.100.254; 
-  option subnet-mask 255.255.255.0;
-  option broadcast-address 192.168.100.255;
-  option routers 192.168.100.1;
-  ping-check true;
-  default-lease-time 600;
-  max-lease-time 7200;
- }
+vim /etc/dnsmasq.conf
+interface=veth0 #veth0 is your dhcp NIC name
+except-interface=*
+dhcp-range=192.168.100.2,192.168.100.254,255.255.255.0,1h
 ```
 set ovs
 ```
@@ -77,7 +58,7 @@ bash ./setovs.sh ens33  #ens33 is your ryu server NIC name
 ```
 get ip
 ```
-systemctl restart isc-dhcp-server
+systemctl restart dnsmasq
 dhclient veth1
 dhclient my-bridge
 ```
@@ -117,7 +98,7 @@ screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #i
 ```
 set controller IP(run to background)
 ```
-vim ./setting.py
+vim ./settings.py
 
 CONTROLLER_IP = '192.168.2.179'   #change ryu server IP
 ```
