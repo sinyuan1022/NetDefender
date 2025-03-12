@@ -1,6 +1,8 @@
 # System environment
 ryu server: Ubuntu22.04<br>
-snort server: Ubuntu22.04
+ryu python:Python3.9
+snort server: Ubuntu22.04<br>
+snort server:Python3.9+
 
 ## !!! # is for comments
 
