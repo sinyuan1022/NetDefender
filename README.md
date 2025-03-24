@@ -8,7 +8,7 @@ snort Python:Python3.9+
 install video youtube<br>
 [![install video youtube](https://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
 # Ryu server
-first install ovs and docker
+First install OVS, Docker, and other required packages
 ```
 apt update
 apt upgrade -y
@@ -26,7 +26,7 @@ pip install eventlet==0.30.2
 docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 python3.9 imagecheck.py
 ```
-set Virtual NIC
+Set Virtual NIC
 ```
 ip link add veth0 type veth peer name veth1
 ip addr add 192.168.100.1/24 dev veth0
@@ -40,7 +40,7 @@ iptables -I FORWARD -o my-bridge -j ACCEPT
 ```
 ![image](https://github.com/user-attachments/assets/d1e1fc1f-f132-4634-a8de-80ba7a50c77d)
 
-enabling IPv4 Packet Forwarding
+Enabling IPv4 Packet Forwarding
 ```
 vim /etc/sysctl.conf
 
@@ -48,12 +48,12 @@ net.ipv4.ip_forward = 1 #updata
 ```
 ![image](https://github.com/user-attachments/assets/1bef166b-2144-455b-9dbe-1c02ca343fe1)
 
-apply changes
+Apply changes
 ```
 sysctl -p
 iptables -P FORWARD ACCEPT
 ```
-set dhcp-server 
+Set dhcp-server conf
 ```
 vim /etc/dnsmasq.conf
 ```
@@ -126,7 +126,8 @@ network:
 
 ```
 ![image](https://github.com/user-attachments/assets/89a2e888-3e52-4c3d-8856-e96c3fb7f9fc)<br>
-![image](https://github.com/user-attachments/assets/27c52736-fb59-4a13-9d28-5e1c6ed15f26)
+![image](https://github.com/user-attachments/assets/27c52736-fb59-4a13-9d28-5e1c6ed15f26)<br>
+Apply netplan
 ```
 chmod 600 /etc/netplan/*yaml
 netplan try
@@ -135,20 +136,20 @@ netplan apply
 netplan apply
 ```
 ![image](https://github.com/user-attachments/assets/8e9c1196-40c8-4270-8c4d-c05b79795133)<br>
-get veth1 and my-bridge ip
+Get veth1 and my-bridge ip
 ```
 systemctl restart dnsmasq
 dhclient veth1
 dhcpcd my-bridge
 ```
 ![image](https://github.com/user-attachments/assets/d819c9e5-18aa-4682-907d-b07e71399d83)<br>
-set docker network
+Set Docker Network
 ```
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 ```
 ![image](https://github.com/user-attachments/assets/6f8219ce-0ae2-49d9-8215-45d0c5bbfa32)<br>
 Run Ryu
-Then, start pigrelay inside the Snort server.
+Then, start pigrelay inside the Snort server
 ```
 ryu-manager ovs.py   #it is not run in background
 
@@ -157,7 +158,7 @@ screen -dmS ryu ryu-manager ovs.py   #it is run in background
 ![image](https://github.com/user-attachments/assets/6ba3fbfc-9512-4ca4-aeab-e42a8f382369)<br>
 ---
 # Snort server
-install snort and python
+Install Snort and Python
 ```
 apt update
 apt upgrade -y
@@ -167,7 +168,7 @@ cd ./my-project/snort
 
 ifconfig ens33 promisc   #ens33 is your snort server NIC name
 ```
-run snort 
+Run Snort 
 ```
 # ens33 is your snort server NIC name
 snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
@@ -175,7 +176,7 @@ snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in ba
 screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
 ```
 ![image](https://github.com/user-attachments/assets/d66c5c91-3d5f-451b-8e20-b5001f07afa0)<br>
-set controller IP(run to background)
+Set controller IP(Run to Background)
 ```
 vim ./settings.py
 
