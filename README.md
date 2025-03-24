@@ -122,9 +122,8 @@ netplan apply
 ```
 set ovs-ofctl
 ```
-ovs-ofctl add-flow br0 "in_port=my-bridge,udp,tp_dst=67,actions=LOCAL"
-ovs-ofctl add-flow br0 "in_port=LOCAL,udp,tp_dst=68,actions=output:my-bridge"
 ovs-ofctl add-flow br0 "in_port=my-bridge,udp,tp_dst=67,actions=drop"
+ovs-ofctl add-flow br0 "in_port=my-bridge,udp,tp_dst=68,actions=drop"
 ```
 get ip
 ```
