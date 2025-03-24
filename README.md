@@ -90,7 +90,7 @@ network:
           - 8.8.8.8
           - 8.8.4.4
       routes:
-        - to: default
+        - to:  192.168.1.0/16
           via: 192.168.1.1
   bridges:
     br0:
