@@ -141,6 +141,19 @@ ryu-manager ovs.py   #it is not run in background
 
 screen -dmS ryu ryu-manager ovs.py   #it is run in background
 ```
+vim /usr/local/bin/setup-network.sh
+```
+ip link add veth0 type veth peer name veth1
+ip addr add 192.168.100.1/24 dev veth0
+ip link set veth0 up
+ip link set veth1 up
+ip link add my-bridge type bridge
+ip link set my-bridge up
+ip link set veth1 master my-bridge
+systemctl restart dnsmasq
+dhclient veth1
+dhcpcd my-bridge
+```
 ---
 # Snort server
 install snort and python
