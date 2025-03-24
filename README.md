@@ -37,6 +37,8 @@ ip link set veth1 master my-bridge
 iptables -A FORWARD -i my-bridge -j ACCEPT
 iptables -I FORWARD -o my-bridge -j ACCEPT
 ```
+![Uploading image.png…]()
+
 enabling IPv4 Packet Forwarding
 ```
 vim /etc/sysctl.conf
