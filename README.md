@@ -125,12 +125,6 @@ get ip
 systemctl restart dnsmasq
 dhclient veth1
 dhcpcd my-bridge
-ovs-vsctl add-port br0 my-bridge
-```
-set ovs-ofctl
-```
-ovs-ofctl add-flow br0 "in_port=my-bridge,udp,tp_dst=67,actions=drop"
-ovs-ofctl add-flow br0 "in_port=my-bridge,udp,tp_dst=68,actions=drop"
 ```
 set docker network
 ```
