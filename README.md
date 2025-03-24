@@ -159,7 +159,7 @@ ryu-manager ovs.py   #it is not run in background
 
 screen -dmS ryu ryu-manager ovs.py   #it is run in background
 ```
-![image](https://github.com/user-attachments/assets/d550f1ff-20ed-4fe7-80f5-032daea3d5f6)<br>
+![image](https://github.com/user-attachments/assets/5bad9195-2fa1-4b6f-bf22-71f6d2493ac5)<br>
 ---
 # Snort server
 Install Snort and Python
