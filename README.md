@@ -121,7 +121,7 @@ network:
 ```
 chmod 600 /etc/netplan/*yaml
 netplan try
-systemctl restart  systemd-networkd
+systemctl restart systemd-networkd
 netplan apply
 netplan apply
 ```
