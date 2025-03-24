@@ -126,7 +126,6 @@ ovs-ofctl add-flow br0 "in_port=veth0,udp,tp_dst=67,actions=drop"
 ```
 set docker network
 ```
-docker network create -d bridge --subnet=192.168.100.0/24 --gateway=192.168.100.1 my-dhcp-net
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 ```
 Run Ryu
