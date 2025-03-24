@@ -70,7 +70,7 @@ dhcp-option=6,8.8.8.8,8.8.4.4
 ```
 ![image](https://github.com/user-attachments/assets/e7567b8d-26da-4dfe-80b6-f2b73de6cbf6)
 
-set ovs(dhcp interface)<br>
+Configure the physical network adapter and the OVS (Open vSwitch) network adapter (dhcp interface)<br>
 Please change it to the local network adapter<br>
 ens33 is used on br0
 ```
@@ -79,7 +79,7 @@ ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ifconfig ens33 0
 dhclient br0
 ```
-set ovs(static ip)<br>
+Configure the physical network adapter and the OVS (Open vSwitch) network adapter (static ip)<br>
 Please change it to the local network adapter<br>
 ens33 is used on br0<br>
 ens34 is used for remote connections (if remote connection is not needed, it can be left unconfigured)
