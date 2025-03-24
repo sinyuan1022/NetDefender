@@ -69,12 +69,6 @@ ifmetric ens33 0
 dhclient br0
 ovs-vsctl add-port br0 veth0
 ```
-get ip
-```
-systemctl restart dnsmasq
-dhclient veth1
-dhclient my-bridge
-```
 set ovs(two interface static ip)
 ```
 vim /etc/netplan/*.yaml
@@ -123,6 +117,12 @@ chmod 600 /etc/netplan/*yaml
 netplan try
 netplan apply
 ovs-vsctl add-port br0 veth0
+```
+get ip
+```
+systemctl restart dnsmasq
+dhclient veth1
+dhclient my-bridge
 ```
 set ovs-ofctl
 ```
