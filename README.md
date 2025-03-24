@@ -40,6 +40,7 @@ iptables -I FORWARD -o my-bridge -j ACCEPT
 enabling IPv4 Packet Forwarding
 ```
 vim /etc/sysctl.conf
+
 net.ipv4.ip_forward = 1 #updata
 ```
 apply changes
@@ -63,14 +64,18 @@ dhcp-option=28,192.168.100.255
 dhcp-option=6,8.8.8.8,8.8.4.4
 ```
 set ovs(dhcp interface)
+Please change it to the local network adapter
+ens33 is used on br0
 ```
 ovs-vsctl add-port br0 ens33
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ifconfig ens33 0
 dhclient br0
-ovs-vsctl add-port br0 veth0
 ```
 set ovs(static ip)
+Please change it to the local network adapter
+ens33 is used on br0
+ens34 is used for remote connections (if remote connection is not needed, it can be left unconfigured)
 ```
 vim /etc/netplan/*.yaml
 ```
@@ -135,11 +140,6 @@ Run Ryu
 ryu-manager ovs.py   #it is not run in background
 
 screen -dmS ryu ryu-manager ovs.py   #it is run in background
-```
-run container(Later, change it to automation.)
-```
-#Use two terminals to run
-docker run --rm -ti --name ssh0 --network my-dhcp-net cowrie/cowrie
 ```
 ---
 # Snort server
