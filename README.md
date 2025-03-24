@@ -112,6 +112,11 @@ network:
             - tcp:127.0.0.1:6653
 
 ```
+```
+chmod 600 /etc/netplan/*yaml
+netplan try
+netplan apply
+```
 get ip
 ```
 systemctl restart dnsmasq
