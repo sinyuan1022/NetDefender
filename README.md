@@ -119,19 +119,19 @@ network:
 chmod 600 /etc/netplan/*yaml
 netplan try
 netplan apply
-ovs-vsctl add-port br0 veth0
-```
-get ip
-```
-systemctl restart dnsmasq
-dhclient veth1
-dhclient my-bridge
 ```
 set ovs-ofctl
 ```
 ovs-ofctl add-flow br0 "in_port=veth0,udp,tp_dst=67,actions=LOCAL"
 ovs-ofctl add-flow br0 "in_port=LOCAL,udp,tp_dst=68,actions=output:veth0"
 ovs-ofctl add-flow br0 "in_port=veth0,udp,tp_dst=67,actions=drop"
+```
+get ip
+```
+systemctl restart dnsmasq
+dhclient veth1
+dhcpcd my-bridge
+ovs-vsctl add-port br0 my-bridge
 ```
 set docker network
 ```
