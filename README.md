@@ -38,6 +38,7 @@ iptables -A FORWARD -i my-bridge -j ACCEPT
 iptables -I FORWARD -o my-bridge -j ACCEPT
 ```
 ![image](https://github.com/user-attachments/assets/d1e1fc1f-f132-4634-a8de-80ba7a50c77d)
+
 enabling IPv4 Packet Forwarding
 ```
 vim /etc/sysctl.conf
