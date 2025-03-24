@@ -50,6 +50,8 @@ iptables -P FORWARD ACCEPT
 set dhcp-server 
 ```
 vim /etc/dnsmasq.conf
+```
+```
 interface=veth0 #veth0 is your dhcp NIC name
 except-interface=*
 bind-interfaces
@@ -58,9 +60,57 @@ dhcp-option=3,192.168.100.1
 dhcp-option=28,192.168.100.255
 dhcp-option=6,8.8.8.8,8.8.4.4
 ```
-set ovs
+set ovs(dhcp interface)
 ```
-bash ./setovs.sh ens33  #ens33 is your ryu server NIC name
+ovs-vsctl add-port br0 ens33
+ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
+ifmetric br0 0
+ifmetric ens33 0
+dhclient br0
+ovs-vsctl add-port br0 veth0
+```
+set ovs(two interface static ip)
+```
+vim /etc/netplan/*.yaml
+```
+```
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens33: 
+      dhcp4: no
+    ens34:
+      addresses:
+        - 192.168.1.104/24
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+      routes:
+        - to: default
+          via: 192.168.1.1
+  bridges:
+    br0:
+      interfaces: [ens33]
+      addresses:
+        - 192.168.254.137/24
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+      routes:
+        - to: default
+          via: 192.168.254.2
+      parameters:
+        stp: false
+        forward-delay: 0
+      openvswitch:
+        fail-mode: standalone
+        controller: 
+		      addresses:
+		        - tcp:127.0.0.1:6653
+
 ```
 get ip
 ```
@@ -68,8 +118,15 @@ systemctl restart dnsmasq
 dhclient veth1
 dhclient my-bridge
 ```
+set ovs-ofctl
+```
+ovs-ofctl add-flow br0 "in_port=veth0,udp,tp_dst=67,actions=LOCAL"
+ovs-ofctl add-flow br0 "in_port=LOCAL,udp,tp_dst=68,actions=output:veth0"
+ovs-ofctl add-flow br0 "in_port=veth0,udp,tp_dst=67,actions=drop"
+```
 set docker network
 ```
+docker network create -d bridge --subnet=192.168.100.0/24 --gateway=192.168.100.1 my-dhcp-net
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 ```
 Run Ryu
