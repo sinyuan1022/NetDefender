@@ -194,6 +194,7 @@ CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 ![image](https://github.com/user-attachments/assets/3ce5243b-ca75-40a7-aeb9-2d1aa68cf4ee)
 
 run pigrelay
+Start ryu first, then start pigrelay
 ```
 python3 pigrelay.py   #it is not run in background
 
