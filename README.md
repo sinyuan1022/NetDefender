@@ -150,6 +150,13 @@ ip link set veth1 up
 ip link add my-bridge type bridge
 ip link set my-bridge up
 ip link set veth1 master my-bridge
+systemctl restart docker
+docker rm $(docker ps -aq)
+chmod 600 /etc/netplan/*yaml
+netplan try
+systemctl restart  systemd-networkd
+netplan apply
+netplan apply
 systemctl restart dnsmasq
 dhclient veth1
 dhcpcd my-bridge
