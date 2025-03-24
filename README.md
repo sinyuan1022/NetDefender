@@ -5,7 +5,7 @@ snort server: Ubuntu22.04<br>
 snort Python:Python3.9+
 
 ## !!! # is for comments
-install video youtube
+install video youtube<br>
 [![install video youtube](https://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
 # Ryu server
 first install ovs and docker
@@ -70,8 +70,8 @@ dhcp-option=6,8.8.8.8,8.8.4.4
 ```
 ![image](https://github.com/user-attachments/assets/e7567b8d-26da-4dfe-80b6-f2b73de6cbf6)
 
-set ovs(dhcp interface)
-Please change it to the local network adapter
+set ovs(dhcp interface)<br>
+Please change it to the local network adapter<br>
 ens33 is used on br0
 ```
 ovs-vsctl add-port br0 ens33
@@ -79,9 +79,9 @@ ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ifconfig ens33 0
 dhclient br0
 ```
-set ovs(static ip)
-Please change it to the local network adapter
-ens33 is used on br0
+set ovs(static ip)<br>
+Please change it to the local network adapter<br>
+ens33 is used on br0<br>
 ens34 is used for remote connections (if remote connection is not needed, it can be left unconfigured)
 ```
 vim /etc/netplan/*.yaml
@@ -125,7 +125,7 @@ network:
             - tcp:127.0.0.1:6653
 
 ```
-![image](https://github.com/user-attachments/assets/89a2e888-3e52-4c3d-8856-e96c3fb7f9fc)
+![image](https://github.com/user-attachments/assets/89a2e888-3e52-4c3d-8856-e96c3fb7f9fc)<br>
 ![image](https://github.com/user-attachments/assets/27c52736-fb59-4a13-9d28-5e1c6ed15f26)
 ```
 chmod 600 /etc/netplan/*yaml
@@ -134,22 +134,19 @@ systemctl restart systemd-networkd
 netplan apply
 netplan apply
 ```
-![image](https://github.com/user-attachments/assets/8e9c1196-40c8-4270-8c4d-c05b79795133)
-
+![image](https://github.com/user-attachments/assets/8e9c1196-40c8-4270-8c4d-c05b79795133)<br>
 get ip
 ```
 systemctl restart dnsmasq
 dhclient veth1
 dhcpcd my-bridge
 ```
-![image](https://github.com/user-attachments/assets/d819c9e5-18aa-4682-907d-b07e71399d83)
-
+![image](https://github.com/user-attachments/assets/d819c9e5-18aa-4682-907d-b07e71399d83)<br>
 set docker network
 ```
 docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 --ipam-driver null -o bridge=my-bridge my-dhcp-net
 ```
-![image](https://github.com/user-attachments/assets/6f8219ce-0ae2-49d9-8215-45d0c5bbfa32)
-
+![image](https://github.com/user-attachments/assets/6f8219ce-0ae2-49d9-8215-45d0c5bbfa32)<br>
 Run Ryu
 Then, start pigrelay inside the Snort server.
 ```
@@ -157,7 +154,7 @@ ryu-manager ovs.py   #it is not run in background
 
 screen -dmS ryu ryu-manager ovs.py   #it is run in background
 ```
-![image](https://github.com/user-attachments/assets/6ba3fbfc-9512-4ca4-aeab-e42a8f382369)
+![image](https://github.com/user-attachments/assets/6ba3fbfc-9512-4ca4-aeab-e42a8f382369)<br>
 ---
 # Snort server
 install snort and python
@@ -177,25 +174,22 @@ snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in ba
 
 screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
 ```
-![image](https://github.com/user-attachments/assets/d66c5c91-3d5f-451b-8e20-b5001f07afa0)
-
+![image](https://github.com/user-attachments/assets/d66c5c91-3d5f-451b-8e20-b5001f07afa0)<br>
 set controller IP(run to background)
 ```
 vim ./settings.py
 
 CONTROLLER_IP = '192.168.2.179'   #change ryu server IP
 ```
-![image](https://github.com/user-attachments/assets/ffab87d9-36d9-4c8e-b589-58f80d045731)
-
+![image](https://github.com/user-attachments/assets/ffab87d9-36d9-4c8e-b589-58f80d045731)<br>
 set controller IP(not background)
 ```
 vim ./pigrelay.py
 
 CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 ```
-![image](https://github.com/user-attachments/assets/3ce5243b-ca75-40a7-aeb9-2d1aa68cf4ee)
-
-run pigrelay
+![image](https://github.com/user-attachments/assets/3ce5243b-ca75-40a7-aeb9-2d1aa68cf4ee)<br>
+run pigrelay<br>
 Start ryu first, then start pigrelay
 ```
 python3 pigrelay.py   #it is not run in background
