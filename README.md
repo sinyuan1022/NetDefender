@@ -107,9 +107,9 @@ network:
         forward-delay: 0
       openvswitch:
         fail-mode: standalone
-        controller: 
-		      addresses:
-		        - tcp:127.0.0.1:6653
+        controller:  
+          addresses:
+            - tcp:127.0.0.1:6653
 
 ```
 get ip
