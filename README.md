@@ -5,8 +5,12 @@ snort server: Ubuntu22.04<br>
 snort Python:Python3.9+
 
 ## !!! # is for comments
-install video youtube<br>
-[![install video youtube](https://img.youtube.com/vi/R2EYKQS-EGc/0.jpg)](https://www.youtube.com/watch?v=R2EYKQS-EGc)
+
+
+Install Ryu Server Video Youtube<br>
+[![install video youtube](https://img.youtube.com/vi/R2EYKQS-EGc/0.jpg)](https://www.youtube.com/watch?v=R2EYKQS-EGc)<br>
+
+
 # Ryu server
 First install OVS, Docker, and other required packages
 ```
