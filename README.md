@@ -127,7 +127,6 @@ network:
         controller:  
           addresses:
             - tcp:127.0.0.1:6653
-
 ```
 ![image](https://github.com/user-attachments/assets/89a2e888-3e52-4c3d-8856-e96c3fb7f9fc)<br>
 ![image](https://github.com/user-attachments/assets/27c52736-fb59-4a13-9d28-5e1c6ed15f26)<br>
