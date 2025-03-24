@@ -66,12 +66,11 @@ set ovs(dhcp interface)
 ```
 ovs-vsctl add-port br0 ens33
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
-ifmetric br0 0
-ifmetric ens33 0
+ifconfig ens33 0
 dhclient br0
 ovs-vsctl add-port br0 veth0
 ```
-set ovs(two interface static ip)
+set ovs(static ip)
 ```
 vim /etc/netplan/*.yaml
 ```
