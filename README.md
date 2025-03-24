@@ -5,7 +5,8 @@ snort server: Ubuntu22.04<br>
 snort Python:Python3.9+
 
 ## !!! # is for comments
-
+install video youtube
+[![install video youtube](https://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
 # Ryu server
 first install ovs and docker
 ```
