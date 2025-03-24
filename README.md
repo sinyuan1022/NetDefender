@@ -52,9 +52,12 @@ set dhcp-server
 vim /etc/dnsmasq.conf
 ```
 ```
+port=0
 interface=veth0 #veth0 is your dhcp NIC name
-except-interface=*
+no-dhcp-interface=br0
 bind-interfaces
+listen-address=192.168.100.1 
+listen-address=127.0.0.1
 dhcp-range=192.168.100.2,192.168.100.254,255.255.255.0,1h
 dhcp-option=3,192.168.100.1
 dhcp-option=28,192.168.100.255
