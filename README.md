@@ -14,6 +14,7 @@ Install Ryu Server Video Youtube<br>
 # Ryu server
 First install OVS, Docker, and other required packages
 ```
+sudo -s
 apt update
 apt upgrade -y
 apt install openvswitch-switch vim net-tools iptables-persistent dhcpcd5 htop ifmetric software-properties-common git screen dnsmasq -y
@@ -163,6 +164,7 @@ screen -dmS ryu ryu-manager ovs.py   #it is run in background
 # Snort server
 Install Snort and Python
 ```
+sudo -s
 apt update
 apt upgrade -y
 apt install python3 python3-pip snort git vim net-tools -y
@@ -174,21 +176,21 @@ ifconfig ens33 promisc   #ens33 is your snort server NIC name
 Run Snort 
 ```
 # ens33 is your snort server NIC name
-snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
+sudo snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is not run in background
 
 screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf   #it is run in background
 ```
 ![image](https://github.com/user-attachments/assets/d66c5c91-3d5f-451b-8e20-b5001f07afa0)<br>
 Set controller IP(Run to Background)
 ```
-vim ./settings.py
+sudo vim ./settings.py
 
 CONTROLLER_IP = '192.168.2.179'   #change ryu server IP
 ```
 ![image](https://github.com/user-attachments/assets/ffab87d9-36d9-4c8e-b589-58f80d045731)<br>
 set controller IP(not background)
 ```
-vim ./pigrelay.py
+sudo vim ./pigrelay.py
 
 CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 ```
@@ -196,9 +198,9 @@ CONTROLLER_IP = '127.0.0.1'   #change ryu server IP
 run pigrelay<br>
 Start ryu first, then start pigrelay
 ```
-python3 pigrelay.py   #it is not run in background
+sudo python3 pigrelay.py   #it is not run in background
 
-python3 hpigrelay.py start   #it is run in background
+sudo python3 hpigrelay.py start   #it is run in background
 ```
 ![image](https://github.com/user-attachments/assets/5c1b3cd2-3a0e-40ed-a944-7626fb6b2dad)
 
