@@ -1,8 +1,8 @@
 # System environment
-ryu server: Ubuntu22.04<br>
-ryu Python: Python3.9<br>
-snort server: Ubuntu22.04<br>
-snort Python: Python3.9+
+Ryu Server: Ubuntu22.04<br>
+Ryu Python: Python3.9<br>
+Snort Server: Ubuntu22.04<br>
+Snort Python: Python3.9+
 
 ## !!! # is for comments
 
