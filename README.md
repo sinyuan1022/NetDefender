@@ -139,7 +139,6 @@ chmod 600 /etc/netplan/*yaml
 netplan try
 systemctl restart systemd-networkd
 netplan apply
-netplan apply
 ```
 ![image](https://github.com/user-attachments/assets/8e9c1196-40c8-4270-8c4d-c05b79795133)<br>
 Get veth1 and my-bridge ip
