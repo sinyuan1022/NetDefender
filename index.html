@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ryu & Snort Server Setup Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 900px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        pre {
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .note {
+            font-style: italic;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ryu & Snort Server Setup Guide</h1>
+        <h2>Ryu Server Installation</h2>
+        <p>First, install Open vSwitch (OVS), Docker, and other required packages:</p>
+        <pre>sudo -s
+apt update
+apt upgrade -y
+apt install openvswitch-switch vim net-tools iptables-persistent dhcpcd5 htop ifmetric software-properties-common git screen dnsmasq -y
+apt install docker.io=20.10.21-0ubuntu1~22.04.3 -y
+add-apt-repository ppa:deadsnakes/ppa
+apt update
+git clone https://github.com/sinyuan1022/my-project.git
+cd ./my-project/ryu/
+apt install python3.9 python3.9-distutils -y
+python3.9 get-pip.py
+pip install setuptools==67.6.1 
+pip install ryu docker scapy
+pip install eventlet==0.30.2
+docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
+python3.9 imagecheck.py</pre>
+        <h3>Set Virtual NIC</h3>
+        <pre>ip link add veth0 type veth peer name veth1
+ip addr add 192.168.100.1/24 dev veth0
+ip link set veth0 up
+ip link set veth1 up
+ip link add my-bridge type bridge
+ip link set my-bridge up
+ip link set veth1 master my-bridge
+iptables -A FORWARD -i my-bridge -j ACCEPT
+iptables -I FORWARD -o my-bridge -j ACCEPT</pre>
+        <img src="https://github.com/user-attachments/assets/d1e1fc1f-f132-4634-a8de-80ba7a50c77d">
+        <h3>Enable IPv4 Packet Forwarding</h3>
+        <pre>vim /etc/sysctl.conf
+
+net.ipv4.ip_forward = 1 #update</pre>
+        <h3>Apply Changes</h3>
+        <pre>sysctl -p
+iptables -P FORWARD ACCEPT</pre>
+        <h2>Snort Server Installation</h2>
+        <pre>sudo -s
+apt update
+apt upgrade -y
+apt install python3 python3-pip snort git vim net-tools -y
+git clone https://github.com/sinyuan1022/my-project.git
+cd ./my-project/snort
+
+ifconfig ens33 promisc   #ens33 is your snort server NIC name</pre>
+        <h3>Run Snort</h3>
+        <pre>sudo snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf</pre>
+        <img src="https://github.com/user-attachments/assets/d66c5c91-3d5f-451b-8e20-b5001f07afa0">
+        <h3>Set Controller IP</h3>
+        <pre>sudo vim ./settings.py
+CONTROLLER_IP = '192.168.2.179'   #change ryu server IP</pre>
+        <h3>Run PigRelay</h3>
+        <pre>sudo python3 pigrelay.py</pre>
+        <img src="https://github.com/user-attachments/assets/5c1b3cd2-3a0e-40ed-a944-7626fb6b2dad">
+        <p class="note">Ensure Ryu is started before running PigRelay.</p>
+    </div>
+</body>
+</html>
