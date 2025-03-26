@@ -108,6 +108,8 @@ network:
       routes:
         - to:  192.168.1.0/16
           via: 192.168.1.1
+          metric: 100
+          table: 200
   bridges:
     br0:
       interfaces: [ens33]
