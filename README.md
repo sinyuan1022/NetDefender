@@ -106,7 +106,7 @@ network:
           - 8.8.8.8
           - 8.8.4.4
       routes:
-        - to:  192.168.1.0/16
+        - to:  default
           via: 192.168.1.1
           metric: 100
           table: 200
