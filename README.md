@@ -109,7 +109,6 @@ network:
         - to:  default
           via: 192.168.1.1
           metric: 100
-          table: 200
   bridges:
     br0:
       interfaces: [ens33]
