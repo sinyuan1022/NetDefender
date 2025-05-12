@@ -365,6 +365,12 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         # 更新使用時間
         if service_name in self.container_status and container_name in self.container_status[service_name]:
             self.container_status[service_name][container_name]["last_used"] = datetime.now()
+            # 更新客戶端IP與容器對應關係
+            if ipv4_pkt.src not in self.ip_container_map.get(service_name, {}):
+                if service_name not in self.ip_container_map:
+                    self.ip_container_map[service_name] = {}
+                self.ip_container_map[service_name][ipv4_pkt.src] = container_name
+                self.container_status[service_name][container_name]["ip"] = ipv4_pkt.src
 
         # 獲取容器 IP
         target_ip = getip.getcontainer_ip(container_name)
@@ -374,18 +380,55 @@ class SimpleSwitchSnort(app_manager.RyuApp):
 
         # 設置目標端口
         target_port = service_config.get('target_port', dst_port)
-
-        # 建立連接映射
-        self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
+        
+        # 建立連接映射 - 雙向存儲連接信息
+        conn_key_forward = (ipv4_pkt.src, tcp_pkt.src_port)
+        conn_key_reverse = (target_ip, target_port)
+        
+        self.connection_map[conn_key_forward] = (target_ip, target_port)
+        self.connection_map[conn_key_reverse] = (ipv4_pkt.src, tcp_pkt.src_port)
+        
+        # 保存IP對應關係
+        self.connection_ip[ipv4_pkt.src] = target_ip
+        self.connection_ip[target_ip] = ipv4_pkt.src
         
         self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
                         f"{target_ip}:{target_port} (Container: {container_name})")
         
+        # 確保流量可雙向對應
         actions = [
             parser.OFPActionSetField(ipv4_dst=target_ip),
             parser.OFPActionSetField(tcp_dst=target_port),
             parser.OFPActionOutput(ofproto.OFPP_NORMAL)
         ]
+        
+        # 添加雙向流規則
+        match_forward = parser.OFPMatch(
+            eth_type=ether.ETH_TYPE_IP,
+            ip_proto=inet.IPPROTO_TCP,
+            ipv4_src=ipv4_pkt.src,
+            ipv4_dst=ipv4_pkt.dst,
+            tcp_src=tcp_pkt.src_port,
+            tcp_dst=tcp_pkt.dst_port
+        )
+        
+        self.add_flow(datapath, 2, match_forward, actions)
+        
+        # 返回方向的流規則
+        match_reverse = parser.OFPMatch(
+            eth_type=ether.ETH_TYPE_IP,
+            ip_proto=inet.IPPROTO_TCP,
+            ipv4_src=target_ip,
+            tcp_src=target_port
+        )
+        
+        actions_reverse = [
+            parser.OFPActionSetField(ipv4_src=ipv4_pkt.dst),  # 原始目標IP
+            parser.OFPActionSetField(tcp_src=tcp_pkt.dst_port),  # 原始目標端口
+            parser.OFPActionOutput(ofproto.OFPP_NORMAL)
+        ]
+        
+        self.add_flow(datapath, 2, match_reverse, actions_reverse)
         
         out = parser.OFPPacketOut(
             datapath=datapath, buffer_id=msg.buffer_id,
@@ -398,19 +441,42 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         tcp_pkt = pkt.get_protocol(tcp.tcp)
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
-        original_src = self.connection_map.get((ipv4_pkt.dst, tcp_pkt.dst_port))
-        self.logger.info("Incoming redirected traffic: %s:%s -> %s:%s", 
-                             ipv4_pkt.src, tcp_pkt.src_port, 
-                             ipv4_pkt.dst, tcp_pkt.dst_port)
-        if original_src:
-            original_src_ip, original_src_port = original_src
-            self.logger.info("Spoofing back to: %s:%s", original_src_ip, original_src_port)
+        
+        # 使用IP+端口組合作為查詢鍵
+        conn_key = (ipv4_pkt.src, tcp_pkt.src_port)
+        original_dst = self.connection_map.get(conn_key)
+
+        if not original_dst and ipv4_pkt.src in self.connection_ip:
+            # 嘗試僅通過IP查找
+            original_client_ip = self.connection_ip[ipv4_pkt.src]
+            self.logger.info("Fallback to IP-only mapping: %s -> %s", ipv4_pkt.src, original_client_ip)
+            
             actions = [
-                parser.OFPActionSetField(ipv4_src=original_src_ip),
-                parser.OFPActionSetField(tcp_src=original_src_port),
+                parser.OFPActionSetField(ipv4_dst=original_client_ip),
                 parser.OFPActionOutput(ofproto.OFPP_NORMAL)
             ]
-
+            
+            out = parser.OFPPacketOut(
+                datapath=datapath, buffer_id=msg.buffer_id,
+                in_port=in_port, actions=actions, data=msg.data
+            )
+            datapath.send_msg(out)
+            return
+            
+        self.logger.info("Incoming redirected traffic: %s:%s -> %s:%s", 
+                         ipv4_pkt.src, tcp_pkt.src_port, 
+                         ipv4_pkt.dst, tcp_pkt.dst_port)
+                         
+        if original_dst:
+            original_dst_ip, original_dst_port = original_dst
+            self.logger.info("Routing back to: %s:%s", original_dst_ip, original_dst_port)
+            
+            actions = [
+                parser.OFPActionSetField(ipv4_dst=original_dst_ip),
+                parser.OFPActionSetField(tcp_dst=original_dst_port),
+                parser.OFPActionOutput(ofproto.OFPP_NORMAL)
+            ]
+            
             out = parser.OFPPacketOut(
                 datapath=datapath, buffer_id=msg.buffer_id,
                 in_port=in_port, actions=actions, data=msg.data
@@ -427,11 +493,21 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         pkt = packet.Packet(msg.data)
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
-        if tcp_pkt and tcp_pkt:
+
+        if ipv4_pkt and tcp_pkt:
+            # 檢查是否為SSH流量 (目標端口22)
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
                 self.handle_service_packet(pkt, msg.datapath, msg.match['in_port'], msg, tcp_pkt.dst_port)
                 return
-            if tcp_pkt.src_port == 2222 or tcp_pkt.src_port == 2223:
+                
+            # 檢查從容器返回的流量
+            if tcp_pkt.src_port in [2222, 2223] or (ipv4_pkt.src in self.connection_ip):
+                self.return_packet(pkt, datapath, in_port, msg)
+                return
+                
+            # 檢查任何連接映射對應的返回流量
+            conn_key = (ipv4_pkt.src, tcp_pkt.src_port)
+            if conn_key in self.connection_map:
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
         if ipv4_pkt and self.snort.getsnortip():
@@ -469,7 +545,6 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                     return
                 self.packet_store.append((pkt_hash, msg, current_time))
                 return
-
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
         in_port = msg.match['in_port']
