@@ -1,0 +1,68 @@
+print("===== Packet In 事件處理開始 =====")
+print(f"收到 Packet-In 事件: {ev}")
+
+# 取得基本訊息
+print("\n[步驟 1] 獲取基本數據")
+print(f"datapath ID: {datapath.id}")
+print(f"入口端口: {in_port}")
+
+# 解析封包
+print("\n[步驟 2] 解析封包")
+print(f"封包物件: {pkt}")
+print(f"以太網包頭: {eth}")
+print(f"  • 源MAC: {src}")
+print(f"  • 目標MAC: {dst}")
+if ipv4_pkt:
+    print(f"IPv4包頭: {ipv4_pkt}")
+    print(f"  • 源IP: {ipv4_pkt.src}")
+    print(f"  • 目標IP: {ipv4_pkt.dst}")
+if tcp_pkt:
+    print(f"TCP包頭: {tcp_pkt}")
+    print(f"  • 源端口: {tcp_pkt.src_port}")
+    print(f"  • 目標端口: {tcp_pkt.dst_port}")
+
+# MAC地址學習
+print("\n[步驟 3] MAC地址學習")
+print(f"Switch ID: {dpid}")
+print(f"將 MAC {src} 映射到入口端口 {in_port}")
+print(f"MAC地址表: {self.mac_to_port[dpid]}")
+
+# 決定輸出端口
+print("\n[步驟 4] 決定輸出端口")
+if dst in self.mac_to_port[dpid]:
+    print(f"目標MAC {dst} 在MAC地址表中，對應端口 {out_port}")
+else:
+    print(f"目標MAC {dst} 不在MAC地址表中，洪泛")
+    print(f"洪泛端口值: {ofproto.OFPP_FLOOD}")
+
+# 創建動作
+print("\n[步驟 5] 創建轉發動作")
+print(f"動作: 從端口 {out_port} 輸出")
+print(f"OpenFlow動作物件: {actions}")
+
+# 確定封包數據
+print("\n[步驟 6] 確定封包數據")
+if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+    print(f"使用封包數據: {len(data)} 字節")
+    print(f"Buffer ID: 無緩存 ({ofproto.OFP_NO_BUFFER})")
+else:
+    print(f"使用交換機緩存，Buffer ID: {msg.buffer_id}")
+    print("無需傳送封包數據")
+
+# 創建 PacketOut 訊息
+print("\n[步驟 7] 創建 PacketOut 訊息")
+print("OFPPacketOut 參數:")
+print(f"  • datapath: {datapath}")
+print(f"  • buffer_id: {msg.buffer_id}")
+print(f"  • in_port: {in_port}")
+print(f"  • actions: {actions}")
+print(f"  • data: {'有數據' if data else '無數據'}")
+print(f"OFPPacketOut 物件: {out}")
+
+# 發送訊息
+print("\n[步驟 8] 發送 PacketOut 訊息到交換機")
+print(f"發送訊息到 Datapath {datapath.id}")
+print(f"訊息類型: OFPPacketOut")
+print(f"訊息長度: {len(out.buf)}")
+
+print("\n===== Packet In 事件處理完成 =====")
