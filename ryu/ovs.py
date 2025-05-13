@@ -171,7 +171,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                 return container_name, self.container_status[service_name][container_name]["config"]
         
         # 檢查是否可以使用主要容器
-        primary_container = f"{service_name}_0"
+        primary_container = f"{service_name}0"
         if primary_container in self.container_status[service_name]:
             if self.container_status[service_name][primary_container]["ip"] is None:
                 self.container_status[service_name][primary_container]["ip"] = client_ip
