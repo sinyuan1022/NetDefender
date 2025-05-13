@@ -588,7 +588,7 @@ class SimpleSwitchSnort(app_manager.RyuApp):
                 return
                 
             # 檢查從容器返回的流量
-            if tcp_pkt.src_port in [2222, 2223] or (ipv4_pkt.src in self.connection_ip):
+            if tcp_pkt.src_port in [2222, 2223]:
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
                 
