@@ -43,8 +43,10 @@ if [ $? -ne 0 ]; then
 fi
 
 # Set network interface to promiscuous mode
-print_status "Setting ens33 to promiscuous mode..."
-ifconfig ens33 promisc
+print_prompt "Enter the Setting interface name (e.g., ens33):"
+read -r INTERFACE
+print_status "Setting $INTERFACE to promiscuous mode..."
+ifconfig $INTERFACE promisc
 
 if [ $? -ne 0 ]; then
     print_error "Failed to set promiscuous mode on ens33"
