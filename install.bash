@@ -145,35 +145,36 @@ dhcp-option=3,192.168.100.1
 dhcp-option=28,192.168.100.255
 dhcp-option=6,8.8.8.8,8.8.4.4
 EOF
+# Configure netplan interactively with loop for re-entry
+NETPLAN_CONFIGURED=false
+while [ "$NETPLAN_CONFIGURED" = false ]; do
+    print_status "Configuring netplan..."
+    print_warning "Available network interfaces:"
+    # Fixed the awk command
+    ip link show | grep -E '^[0-9]+:' | cut -d: -f2 | tr -d ' ' | grep -v lo
 
-# Configure netplan interactively
-print_status "Configuring netplan..."
-print_warning "Available network interfaces:"
-# Fixed the awk command
-ip link show | grep -E '^[0-9]+:' | cut -d: -f2 | tr -d ' ' | grep -v lo
+    # Get primary interface for bridge
+    print_prompt "Enter the primary network interface name for bridge (e.g., ens33, eth0):"
+    read -r PRIMARY_INTERFACE
 
-# Get primary interface for bridge
-print_prompt "Enter the primary network interface name for bridge (e.g., ens33, eth0):"
-read -r PRIMARY_INTERFACE
+    # Get bridge network configuration
+    print_prompt "Enter the IP address for br0 bridge (e.g., 192.168.254.137/24):"
+    read -r BR0_IP
 
-# Get bridge network configuration
-print_prompt "Enter the IP address for br0 bridge (e.g., 192.168.254.137/24):"
-read -r BR0_IP
+    print_prompt "Enter the default gateway for br0 (e.g., 192.168.254.2):"
+    read -r BR0_GATEWAY
 
-print_prompt "Enter the default gateway for br0 (e.g., 192.168.254.2):"
-read -r BR0_GATEWAY
+    print_prompt "Enter DNS servers for br0 (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
+    read -r BR0_DNS
+    BR0_DNS1=$(echo "$BR0_DNS" | cut -d',' -f1 | tr -d ' ')
+    BR0_DNS2=$(echo "$BR0_DNS" | cut -d',' -f2 | tr -d ' ')
 
-print_prompt "Enter DNS servers for br0 (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
-read -r BR0_DNS
-BR0_DNS1=$(echo "$BR0_DNS" | cut -d',' -f1 | tr -d ' ')
-BR0_DNS2=$(echo "$BR0_DNS" | cut -d',' -f2 | tr -d ' ')
+    # Optional secondary interface configuration
+    print_prompt "Do you want to configure a secondary interface? (y/n):"
+    read -r CONFIGURE_SECONDARY
 
-# Optional secondary interface configuration
-print_prompt "Do you want to configure a secondary interface? (y/n):"
-read -r CONFIGURE_SECONDARY
-
-# Start building netplan configuration
-cat > /etc/netplan/01-netcfg.yaml << EOF
+    # Start building netplan configuration
+    cat > /etc/netplan/01-netcfg.yaml << EOF
 network:
   version: 2
   renderer: networkd
@@ -182,42 +183,58 @@ network:
       dhcp4: no
 EOF
 
-# Add secondary interface if requested
-if [[ "$CONFIGURE_SECONDARY" == "y" ]] || [[ "$CONFIGURE_SECONDARY" == "Y" ]]; then
-    print_prompt "Enter the secondary network interface name (e.g., ens34, eth1):"
-    read -r SECONDARY_INTERFACE
-    
-    print_prompt "Enter the IP address for $SECONDARY_INTERFACE (e.g., 192.168.1.104/24):"
-    read -r SECONDARY_IP
-    
-    print_prompt "Enter the default gateway for $SECONDARY_INTERFACE (e.g., 192.168.1.1):"
-    read -r SECONDARY_GATEWAY
-    
-    print_prompt "Enter the metric for $SECONDARY_INTERFACE route (e.g., 100):"
-    read -r SECONDARY_METRIC
-    
-    print_prompt "Enter DNS servers for $SECONDARY_INTERFACE (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
-    read -r SECONDARY_DNS
-    SECONDARY_DNS1=$(echo "$SECONDARY_DNS" | cut -d',' -f1 | tr -d ' ')
-    SECONDARY_DNS2=$(echo "$SECONDARY_DNS" | cut -d',' -f2 | tr -d ' ')
-    
-    cat >> /etc/netplan/01-netcfg.yaml << EOF
+    # Add secondary interface if requested
+    if [[ "$CONFIGURE_SECONDARY" == "y" ]] || [[ "$CONFIGURE_SECONDARY" == "Y" ]]; then
+        print_prompt "Enter the secondary network interface name (e.g., ens34, eth1):"
+        read -r SECONDARY_INTERFACE
+        
+        print_prompt "Enter the IP address for $SECONDARY_INTERFACE (e.g., 192.168.1.104/24):"
+        read -r SECONDARY_IP
+        
+        print_prompt "Enter the default gateway for $SECONDARY_INTERFACE (e.g., 192.168.1.1):"
+        read -r SECONDARY_GATEWAY
+        
+        print_prompt "Enter the metric for $SECONDARY_INTERFACE route (e.g., 100):"
+        read -r SECONDARY_METRIC
+        
+        print_prompt "Enter DNS servers for $SECONDARY_INTERFACE (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
+        read -r SECONDARY_DNS
+        SECONDARY_DNS1=$(echo "$SECONDARY_DNS" | cut -d',' -f1 | tr -d ' ')
+        SECONDARY_DNS2=$(echo "$SECONDARY_DNS" | cut -d',' -f2 | tr -d ' ')
+        
+        cat >> /etc/netplan/01-netcfg.yaml << EOF
     $SECONDARY_INTERFACE:
       addresses:
         - $SECONDARY_IP
+EOF
+        
+        # Add nameservers for secondary interface
+        if [[ -n "$SECONDARY_DNS2" ]]; then
+            cat >> /etc/netplan/01-netcfg.yaml << EOF
       nameservers:
         addresses:
           - $SECONDARY_DNS1
           - $SECONDARY_DNS2
+EOF
+        else
+            cat >> /etc/netplan/01-netcfg.yaml << EOF
+      nameservers:
+        addresses:
+          - $SECONDARY_DNS1
+EOF
+        fi
+        
+        # Add routes for secondary interface
+        cat >> /etc/netplan/01-netcfg.yaml << EOF
       routes:
         - to: default
           via: $SECONDARY_GATEWAY
           metric: $SECONDARY_METRIC
 EOF
-fi
+    fi
 
-# Add bridge configuration
-cat >> /etc/netplan/01-netcfg.yaml << EOF
+    # Add bridge configuration
+    cat >> /etc/netplan/01-netcfg.yaml << EOF
   bridges:
     br0:
       interfaces: [$PRIMARY_INTERFACE]
@@ -225,24 +242,24 @@ cat >> /etc/netplan/01-netcfg.yaml << EOF
         - $BR0_IP
 EOF
 
-# Add nameservers only if DNS2 exists
-if [[ -n "$BR0_DNS2" ]]; then
-    cat >> /etc/netplan/01-netcfg.yaml << EOF
+    # Add nameservers only if DNS2 exists
+    if [[ -n "$BR0_DNS2" ]]; then
+        cat >> /etc/netplan/01-netcfg.yaml << EOF
       nameservers:
         addresses:
           - $BR0_DNS1
           - $BR0_DNS2
 EOF
-else
-    cat >> /etc/netplan/01-netcfg.yaml << EOF
+    else
+        cat >> /etc/netplan/01-netcfg.yaml << EOF
       nameservers:
         addresses:
           - $BR0_DNS1
 EOF
-fi
+    fi
 
-# Add the rest of bridge configuration
-cat >> /etc/netplan/01-netcfg.yaml << EOF
+    # Add the rest of bridge configuration
+    cat >> /etc/netplan/01-netcfg.yaml << EOF
       routes:
         - to: default
           via: $BR0_GATEWAY
@@ -256,19 +273,25 @@ cat >> /etc/netplan/01-netcfg.yaml << EOF
             - tcp:127.0.0.1:6653
 EOF
 
-# Display the configuration for review
-print_status "Generated netplan configuration:"
-echo "----------------------------------------"
-cat /etc/netplan/01-netcfg.yaml
-echo "----------------------------------------"
+    # Display the configuration for review
+    echo ""
+    print_status "Generated netplan configuration:"
+    echo "========================================="
+    cat /etc/netplan/01-netcfg.yaml
+    echo "========================================="
+    echo ""
 
-print_prompt "Does this configuration look correct? (y/n):"
-read -r CONFIRM
+    print_prompt "Does this configuration look correct? (y/n):"
+    read -r CONFIRM
 
-if [[ "$CONFIRM" != "y" ]] && [[ "$CONFIRM" != "Y" ]]; then
-    print_error "Configuration cancelled. Please run the script again."
-    exit 1
-fi
+    if [[ "$CONFIRM" == "y" ]] || [[ "$CONFIRM" == "Y" ]]; then
+        NETPLAN_CONFIGURED=true
+        print_status "Configuration accepted, proceeding..."
+    else
+        print_warning "Configuration rejected, let's try again..."
+        echo ""
+    fi
+done
 
 # Set proper permissions for netplan config
 chmod 600 /etc/netplan/*yaml
