@@ -35,7 +35,7 @@ apt update
 
 # Install required packages
 print_status "Installing required packages..."
-apt install python3 python3-pip snort git vim net-tools -y
+apt install python3 python3-pip snort git vim screen net-tools -y
 
 if [ $? -ne 0 ]; then
     print_error "Failed to install packages"
