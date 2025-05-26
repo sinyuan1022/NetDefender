@@ -146,6 +146,9 @@ dhcp-option=28,192.168.100.255
 dhcp-option=6,8.8.8.8,8.8.4.4
 EOF
 # Configure netplan interactively with loop for re-entry
+print_status "backup netplan..."
+cp /etc/netplan/01-network-manager-all.yaml /etc/netplan/01-network-manager-all.yaml.backup
+vim /etc/netplan/01-network-manager-all.yaml
 NETPLAN_CONFIGURED=false
 while [ "$NETPLAN_CONFIGURED" = false ]; do
     print_status "Configuring netplan..."
@@ -174,7 +177,7 @@ while [ "$NETPLAN_CONFIGURED" = false ]; do
     read -r CONFIGURE_SECONDARY
 
     # Start building netplan configuration
-    cat > /etc/netplan/01-netcfg.yaml << EOF
+    cat > /etc/netplan/01-network-manager-all.yaml << EOF
 network:
   version: 2
   renderer: networkd
@@ -202,7 +205,7 @@ EOF
         SECONDARY_DNS1=$(echo "$SECONDARY_DNS" | cut -d',' -f1 | tr -d ' ')
         SECONDARY_DNS2=$(echo "$SECONDARY_DNS" | cut -d',' -f2 | tr -d ' ')
         
-        cat >> /etc/netplan/01-netcfg.yaml << EOF
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
     $SECONDARY_INTERFACE:
       addresses:
         - $SECONDARY_IP
@@ -210,14 +213,14 @@ EOF
         
         # Add nameservers for secondary interface
         if [[ -n "$SECONDARY_DNS2" ]]; then
-            cat >> /etc/netplan/01-netcfg.yaml << EOF
+            cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       nameservers:
         addresses:
           - $SECONDARY_DNS1
           - $SECONDARY_DNS2
 EOF
         else
-            cat >> /etc/netplan/01-netcfg.yaml << EOF
+            cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       nameservers:
         addresses:
           - $SECONDARY_DNS1
@@ -225,7 +228,7 @@ EOF
         fi
         
         # Add routes for secondary interface
-        cat >> /etc/netplan/01-netcfg.yaml << EOF
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       routes:
         - to: default
           via: $SECONDARY_GATEWAY
@@ -234,7 +237,7 @@ EOF
     fi
 
     # Add bridge configuration
-    cat >> /etc/netplan/01-netcfg.yaml << EOF
+    cat >> /etc/netplan/01-network-manager-all.yaml << EOF
   bridges:
     br0:
       interfaces: [$PRIMARY_INTERFACE]
@@ -244,14 +247,14 @@ EOF
 
     # Add nameservers only if DNS2 exists
     if [[ -n "$BR0_DNS2" ]]; then
-        cat >> /etc/netplan/01-netcfg.yaml << EOF
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       nameservers:
         addresses:
           - $BR0_DNS1
           - $BR0_DNS2
 EOF
     else
-        cat >> /etc/netplan/01-netcfg.yaml << EOF
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       nameservers:
         addresses:
           - $BR0_DNS1
@@ -259,7 +262,7 @@ EOF
     fi
 
     # Add the rest of bridge configuration
-    cat >> /etc/netplan/01-netcfg.yaml << EOF
+    cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       routes:
         - to: default
           via: $BR0_GATEWAY
@@ -277,7 +280,7 @@ EOF
     echo ""
     print_status "Generated netplan configuration:"
     echo "========================================="
-    cat /etc/netplan/01-netcfg.yaml
+    cat /etc/netplan/01-network-manager-all.yaml
     echo "========================================="
     echo ""
 
