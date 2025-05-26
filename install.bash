@@ -54,7 +54,6 @@ apt install -y \
     htop \
     ifmetric \
     software-properties-common \
-    git \
     screen \
     dnsmasq
 
@@ -66,17 +65,6 @@ apt install -y docker.io=20.10.21-0ubuntu1~22.04.3
 print_status "Adding Python PPA repository..."
 add-apt-repository -y ppa:deadsnakes/ppa
 apt update
-
-# Clone NetDefender repository
-print_status "Cloning NetDefender repository..."
-if [ -d "NetDefender" ]; then
-    print_warning "NetDefender directory already exists, skipping clone"
-else
-    git clone https://github.com/sinyuan1022/NetDefender.git
-fi
-
-# Navigate to ryu directory
-cd ./NetDefender/ryu/
 
 # Install Python 3.9
 print_status "Installing Python 3.9..."
