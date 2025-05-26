@@ -103,19 +103,45 @@ class SimpleSwitchSnort(app_manager.RyuApp):
             return None
 
     def _monitor(self):
-        while True:
-            # 清理過期的packet_store條目
-            current_time = datetime.now()
-            expired_packets = []
-            
-            for i, (pkt_hash, msg, timestamp) in enumerate(self.packet_store):
-                if (current_time - timestamp).total_seconds() > 3:
-                    expired_packets.append(i)
-            
-            # 從後往前移除，避免索引問題
-            for i in sorted(expired_packets, reverse=True):
-                self.packet_store.pop(i)
-                
+       while True:
+            while self.packet_store and (datetime.now() - self.packet_store[0][2]).total_seconds() > 3:
+                pkt_hash, msg, timestamp = self.packet_store.pop()
+                datapath = msg.datapath
+                parser = datapath.ofproto_parser
+                ofproto = datapath.ofproto
+                in_port = msg.match['in_port']
+                pkt = packet.Packet(msg.data)
+                eth = pkt.get_protocols(ethernet.ethernet)[0]
+                dst = eth.dst
+                src = eth.src
+
+                dpid = datapath.id
+                self.mac_to_port.setdefault(dpid, {})
+
+                self.mac_to_port[dpid][src] = in_port
+
+                if dst in self.mac_to_port[dpid]:
+                    out_port = self.mac_to_port[dpid][dst]
+                else:
+                    out_port = ofproto.OFPP_FLOOD
+                actions = [parser.OFPActionOutput(out_port)]
+                if out_port != ofproto.OFPP_FLOOD:
+                    match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                    if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                        self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                        return
+                    else:
+                        self.add_flow(datapath, 1, match, actions)
+
+
+                # , parser.OFPActionOutput(self.snort_port)
+                data = None
+                if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+                    data = msg.data
+
+                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                          in_port=in_port, actions=actions, data=data)
+                datapath.send_msg(out)
             hub.sleep(0.05)
 
     def _container_monitor(self):
