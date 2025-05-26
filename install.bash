@@ -148,7 +148,7 @@ EOF
 # Configure netplan interactively with loop for re-entry
 print_status "backup netplan..."
 cp /etc/netplan/01-network-manager-all.yaml /etc/netplan/01-network-manager-all.yaml.backup
-vim /etc/netplan/01-network-manager-all.yaml
+touch /etc/netplan/01-network-manager-all.yaml
 NETPLAN_CONFIGURED=false
 while [ "$NETPLAN_CONFIGURED" = false ]; do
     print_status "Configuring netplan..."
