@@ -5,6 +5,7 @@ Snort Server: Ubuntu22.04<br>
 Snort Python: Python3.9+
 
 ## !!! # is for comments
+## Please connect to the internet first.
 # Ryu server
 ```bash
 sudo -s
