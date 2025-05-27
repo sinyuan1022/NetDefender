@@ -1,13 +1,13 @@
 {
   "containers": [
     {
-      "port" : 22,
-      "image_name" : "cowrie/cowrie",
-      "name" : "ssh",
-      "target_port" : 2222,
-      "command" : "",
-      "multi" : "no",
-      "max" : 10 
+      "port": 22,
+      "image_name": "cowrie/cowrie",
+      "name": "ssh",
+      "target_port": 2222,
+      "command": "",
+      "multi": "yes",
+      "max": 10
     }
   ]
 }
