@@ -1,24 +1,22 @@
 import docker
+
 def start_new_container(container_name, config):
-    """創建新的容器"""
-    client = docker.from_env()
+    """啟動新的容器"""
     try:
+        client = docker.from_env()
         service_name = config['image_name']
-        command = config.get('command')
+        command = config.get('command', '')
         
-        # 檢查容器是否已存在
-        existing = client.containers.list(all=True, filters={"name": container_name})
-        if existing:
-            container = existing[0]
-            # 如果容器存在但不在運行狀態，嘗試啟動它
-            if container.status != "running":
-                container.start()
-                print(f"Started existing container {container_name}")
-            else:
-                print(f"Container {container_name} is already running")
-            return True
+        # 檢查同名容器是否已存在
+        existing_containers = client.containers.list(all=True, filters={"name": container_name})
+        if existing_containers:
+            # 如果存在但未運行，則嘗試啟動
+            for container in existing_containers:
+                if container.status != "running":
+                    container.start()
+                return True
         
-        # 創建新容器
+        # 創建並啟動新容器
         container = client.containers.run(
             service_name,
             command=command if command else None,
@@ -26,9 +24,15 @@ def start_new_container(container_name, config):
             network="my-dhcp-net",
             name=container_name
         )
-        print(f"Created new container {container_name} from image {service_name}")
+        
+        print(f"成功創建並啟動容器 {container_name}")
         return True
-    except docker.errors.APIError as e:
-        print(f"Error creating container {container_name}: {e}")
+    except docker.errors.ImageNotFound:
+        print(f"鏡像 {config['image_name']} 不存在。")
         return False
-
+    except docker.errors.APIError as e:
+        print(f"啟動容器時出錯: {e}")
+        return False
+    except Exception as e:
+        print(f"發生未知錯誤: {e}")
+        return False
