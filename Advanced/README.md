@@ -79,6 +79,7 @@ Configure the physical network adapter and the OVS (Open vSwitch) network adapte
 Please change it to the local network adapter<br>
 ens33 is used on br0
 ```
+ovs-vsctl add-br br0
 ovs-vsctl add-port br0 ens33
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 ifconfig ens33 0
