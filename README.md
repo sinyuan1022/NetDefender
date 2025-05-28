@@ -14,7 +14,7 @@ apt install git -y
 git clone https://github.com/sinyuan1022/NetDefender.git
 cd ./NetDefender/ryu/
 
-bash ./ryu_install.bash
+bash ./ryu_install.sh
 ```
 # Snort server
 ```bash
@@ -24,5 +24,5 @@ apt install git -y
 git clone https://github.com/sinyuan1022/NetDefender.git
 cd ./NetDefender/snort/
 
-bash ./snort_install.bash
+bash ./snort_install.sh
 ```
