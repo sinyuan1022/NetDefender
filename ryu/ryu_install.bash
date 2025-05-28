@@ -135,7 +135,7 @@ dhcp-option=6,8.8.8.8,8.8.4.4
 EOF
 # Configure netplan interactively with loop for re-entry
 print_status "backup netplan..."
-cp /etc/netplan/01-network-manager-all.yaml /etc/netplan/01-network-manager-all.yaml.backup
+cp /etc/netplan/*.yaml /etc/netplan/01-network-manager-all.yaml.backup
 touch /etc/netplan/01-network-manager-all.yaml
 NETPLAN_CONFIGURED=false
 while [ "$NETPLAN_CONFIGURED" = false ]; do
