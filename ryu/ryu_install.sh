@@ -58,8 +58,8 @@ apt install -y \
     dnsmasq
 
 # Install specific Docker version
-print_status "Installing Docker..."
-apt install -y docker.io
+print_status "Installing Docker version 20.10.12..."
+apt install -y docker.io=20.10.12-0ubuntu1
 
 # Add Python PPA
 print_status "Adding Python PPA repository..."
