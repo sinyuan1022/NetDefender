@@ -563,25 +563,12 @@ class SimpleSwitchSnort(app_manager.RyuApp):
         """添加流表項目"""
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        
-        if buffer_id:
-            mod = parser.OFPFlowMod(
-                datapath=datapath,
-                buffer_id=buffer_id,
-                priority=priority,
-                match=match,
-                instructions=inst
-            )
-        else:
-            mod = parser.OFPFlowMod(
-                datapath=datapath,
-                priority=priority,
-                match=match,
-                instructions=inst
-            )
-            
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                match=match, instructions=inst)
         datapath.send_msg(mod)
 
     def handle_service_packet(self, pkt, datapath, in_port, msg, dst_port):
