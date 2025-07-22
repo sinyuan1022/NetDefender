@@ -22,6 +22,10 @@ print_error() {
 print_warning() {
     echo -e "${YELLOW}[*]${NC} \\$1"
 }
+print_prompt() {
+    echo -e "${BLUE}[INPUT]${NC} \\$1"
+}
+
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
