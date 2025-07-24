@@ -76,9 +76,7 @@ python3.9 get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
-pip install setuptools==67.6.1
-pip install ryu docker scapy
-pip install eventlet==0.30.2
+pip install os-ken docker scapy
 
 
 # Run image check
@@ -301,9 +299,9 @@ docker network create -d macvlan \
 
 # Start Ryu controller in screen session
 print_status "Starting Ryu controller in screen session..."
-screen -dmS ryu ryu-manager ovs.py
+screen -dmS osken osken-manager ovs.py
 
 print_status "NetDefender setup completed successfully!"
-print_status "Ryu controller is running in a screen session named 'ryu'"
-print_status "To attach to the session, use: screen -r ryu"
+print_status "Ryu controller is running in a screen session named 'osken'"
+print_status "To attach to the session, use: screen -r osken"
 
