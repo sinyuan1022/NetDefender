@@ -18,9 +18,9 @@ import os
 import logging
 import six
 
-from ryu.lib import hub, alert
-from ryu.base import app_manager
-from ryu.controller import event
+from os_ken.lib import hub, alert
+from os_ken.base import app_manager
+from os_ken.controller import event
 
 
 BUFSIZE = alert.AlertPkt._ALERTPKT_SIZE
@@ -33,7 +33,7 @@ class EventAlert(event.EventBase):
         self.msg = msg
 
 
-class SnortLib(app_manager.RyuApp):
+class SnortLib(app_manager.OSKenApp):
 
     def __init__(self):
         super(SnortLib, self).__init__()
