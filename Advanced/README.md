@@ -18,7 +18,7 @@ sudo -s
 apt update
 apt upgrade -y
 apt install openvswitch-switch vim net-tools iptables-persistent dhcpcd5 htop ifmetric software-properties-common git screen dnsmasq -y
-apt install docker.io=20.10.21-0ubuntu1~22.04.3 -y
+apt install docker.io=20.10.12-0ubuntu4 -y
 add-apt-repository ppa:deadsnakes/ppa
 apt update
 git clone https://github.com/sinyuan1022/NetDefender.git
