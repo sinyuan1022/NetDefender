@@ -59,7 +59,7 @@ apt install -y \
 
 # Install specific Docker version
 print_status "Installing Docker ..."
-apt install -y docker.io
+apt install docker.io=20.10.12-0ubuntu4 -y
 
 # Add Python PPA
 print_status "Adding Python PPA repository..."
@@ -78,6 +78,7 @@ python3.9 get-pip.py
 print_status "Installing Python packages..."
 pip install os-ken docker scapy
 
+docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 
 # Run image check
 print_status "Running image check..."
@@ -87,6 +88,9 @@ python3.9 imagecheck.py
 print_status "Creating virtual ethernet pair..."
 ip link add veth0 type veth peer name veth1
 ip addr add 192.168.100.1/24 dev veth0
+ip link add my-bridge type bridge
+ip link set my-bridge up
+ip link set veth1 master my-bridge
 ip link set veth0 up
 ip link set veth1 up
 
@@ -287,15 +291,15 @@ systemctl restart dnsmasq
 
 # Configure DHCP on interfaces
 print_status "Configuring DHCP on interfaces..."
-dhcpcd veth1 || print_warning "dhclient veth1 failed, continuing..."
+dhclient veth1 || print_warning "dhclient veth1 failed, continuing..."
+dhcpcd my-bridge
 
 # Create Docker network
 print_status "Creating Docker network..."
-docker network create -d macvlan \
-  --subnet=192.168.100.0/24 \
-  --gateway=192.168.100.1 \
-  -o parent=veth1 \
-  my-dhcp-net || print_warning "Docker network may already exist"
+docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 \
+    --ipam-driver null \
+    -o bridge=my-bridge \
+    my-dhcp-net || print_warning "Docker network may already exist"
 
 # Start Ryu controller in screen session
 print_status "Starting Ryu controller in screen session..."
