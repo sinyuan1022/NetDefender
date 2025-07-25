@@ -284,11 +284,10 @@ netplan apply
 # Restart dnsmasq
 print_status "Restarting dnsmasq service..."
 systemctl restart dnsmasq
-ip route add 192.168.100.0/24 via 192.168.100.1 dev veth0
 
 # Configure DHCP on interfaces
 print_status "Configuring DHCP on interfaces..."
-dhclient veth1 || print_warning "dhclient veth1 failed, continuing..."
+dhcpcd veth1 || print_warning "dhclient veth1 failed, continuing..."
 
 # Create Docker network
 print_status "Creating Docker network..."
