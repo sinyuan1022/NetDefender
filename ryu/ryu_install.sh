@@ -78,7 +78,7 @@ python3.9 get-pip.py
 print_status "Installing Python packages..."
 pip install os-ken docker scapy
 
-docker plugin install ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
+docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 
 # Run image check
 print_status "Running image check..."
