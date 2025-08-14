@@ -312,6 +312,7 @@ if [ $? -ne 0 ]; then
 fi
 sed -i "s/socket_config = {'unixsock': False}/socket_config = {'unixsock': True}/" ovs.py
 
+
 # Set network interface to promiscuous mode
 print_prompt "Enter the Setting interface name (e.g., ens33):"
 read -r INTERFACE
