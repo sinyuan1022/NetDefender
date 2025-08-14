@@ -79,7 +79,13 @@ python3.9 get-pip.py
 print_status "Installing Python packages..."
 pip install os-ken docker scapy
 
-docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
+PLUGIN_NAME="ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64"
+
+if ! docker plugin ls --format '{{.Name}}:{{.Tag}}' | grep -q "^${PLUGIN_NAME}$"; then
+    docker plugin install --grant-all-permissions "$PLUGIN_NAME"
+else
+    echo "Plugin already installed, skipping download."
+fi
 
 # Run image check
 print_status "Running image check..."
