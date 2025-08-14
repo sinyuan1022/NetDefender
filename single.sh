@@ -338,4 +338,5 @@ screen -dmS osken osken-manager ovs.py
 
 print_status "NetDefender setup completed successfully!"
 print_status "Ryu controller is running in a screen session named 'osken'"
+print_status "To check Snort status, use: screen -r snort"
 print_status "To attach to the session, use: screen -r osken"
