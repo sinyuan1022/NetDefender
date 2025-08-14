@@ -59,7 +59,7 @@ fi
 
 # Start Snort in screen session
 print_status "Starting Snort in screen session..."
-screen -dmS snort snort -i ens33 -A unsock -l /tmp -c /etc/snort/snort.conf
+screen -dmS snort snort -i $INTERFACE -A unsock -l /tmp -c /etc/snort/snort.conf
 
 if [ $? -ne 0 ]; then
     print_error "Failed to start Snort"
