@@ -5,7 +5,7 @@
 # This script sets up the NetDefender environment with Open vSwitch, Docker, and Ryu SDN controller
 
 set -e  # Exit on error
-
+cd ./ryu
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -73,7 +73,7 @@ apt install -y python3.9 python3.9-distutils
 
 # Install pip for Python 3.9
 print_status "Installing pip for Python 3.9..."
-python3.9 ./ryu/get-pip.py
+python3.9 get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
@@ -83,7 +83,7 @@ docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp
 
 # Run image check
 print_status "Running image check..."
-python3.9 ./ryu/imagecheck.py
+python3.9 imagecheck.py
 
 # Create virtual ethernet pair
 print_status "Creating virtual ethernet pair..."
@@ -331,7 +331,7 @@ fi
 
 # Start Ryu controller in screen session
 print_status "Starting Ryu controller in screen session..."
-screen -dmS osken osken-manager ./ryu/ovs.py
+screen -dmS osken osken-manager ovs.py
 
 print_status "NetDefender setup completed successfully!"
 print_status "Ryu controller is running in a screen session named 'osken'"
