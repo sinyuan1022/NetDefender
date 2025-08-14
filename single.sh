@@ -73,7 +73,7 @@ apt install -y python3.9 python3.9-distutils
 
 # Install pip for Python 3.9
 print_status "Installing pip for Python 3.9..."
-python3.9 get-pip.py
+python3.9 ./ryu/get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
@@ -83,7 +83,7 @@ docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp
 
 # Run image check
 print_status "Running image check..."
-python3.9 imagecheck.py
+python3.9 ./ryu/imagecheck.py
 
 # Create virtual ethernet pair
 print_status "Creating virtual ethernet pair..."
