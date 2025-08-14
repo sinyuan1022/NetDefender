@@ -81,11 +81,8 @@ pip install os-ken docker scapy
 
 PLUGIN_NAME="ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64"
 
-if ! docker plugin ls --format '{{.Name}}:{{.Tag}}' | grep -q "^${PLUGIN_NAME}$"; then
-    docker plugin install --grant-all-permissions "$PLUGIN_NAME"
-else
-    echo "Plugin already installed, skipping download."
-fi
+docker plugin rm -f "$PLUGIN_NAME" 2>/dev/null || true
+docker plugin install --grant-all-permissions "$PLUGIN_NAME"
 
 # Run image check
 print_status "Running image check..."
@@ -313,7 +310,7 @@ if [ $? -ne 0 ]; then
     print_error "Failed to install packages"
     exit 1
 fi
-sed -i "s/socket_config = {'unixsock': False}/socket_config = {'unixsock': True}/" ./ryu/ovs.py
+sed -i "s/socket_config = {'unixsock': False}/socket_config = {'unixsock': True}/" ovs.py
 
 # Set network interface to promiscuous mode
 print_prompt "Enter the Setting interface name (e.g., ens33):"
