@@ -30,7 +30,7 @@ cd ./NetDefender/snort/
 
 bash ./snort_install.sh
 ```
-#singel server
+# singel server
 ```bash
 sudo -s
 
