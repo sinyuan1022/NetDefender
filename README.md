@@ -30,3 +30,13 @@ cd ./NetDefender/snort/
 
 bash ./snort_install.sh
 ```
+#singel server
+```bash
+sudo -s
+
+apt install git -y
+git clone https://github.com/sinyuan1022/NetDefender.git
+cd ./NetDefender/
+
+bash ./singel.sh
+```
