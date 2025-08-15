@@ -30,6 +30,7 @@ cd ./NetDefender/snort/
 
 bash ./snort_install.sh
 ```
+## Single server means combining the Ryu server and the Snort server into the same server
 # singel server
 ```bash
 sudo -s
