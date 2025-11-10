@@ -193,15 +193,26 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 actions = [parser.OFPActionOutput(out_port)]
                 
                 # 如果輸出端口已知，添加流表
-                if out_port != ofproto.OFPP_FLOOD:
-                    match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-                    
-                    if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                        self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                        continue
-                    else:
-                        self.add_flow(datapath, 1, match, actions)
-                
+                if out_port == ofproto.OFPP_LOCAL:
+                    # 只發一次性 PacketOut，不安裝 flow
+                     actions = [parser.OFPActionOutput(out_port)]
+                     out = parser.OFPPacketOut(
+                         datapath=datapath,
+                         buffer_id=msg.buffer_id,
+                         in_port=in_port,
+                         actions=actions,
+                         data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
+                     )
+                     datapath.send_msg(out)
+                     return  # 不會安裝 flow，也不會再遇到 actions=LOCAL 的自動回補問題
+                # 其他情形才自動下發 flow
+                  if out_port != ofproto.OFPP_FLOOD:
+                     match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                     self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                     continue
+                  else:
+                     self.add_flow(datapath, 1, match, actions)
+                                
                 # 發送封包
                 data = None
                 if msg.buffer_id == ofproto.OFP_NO_BUFFER:
