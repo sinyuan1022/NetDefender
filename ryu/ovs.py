@@ -717,7 +717,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = parser.OFPFlowMod(
             datapath=datapath, priority=0,
-            match=match, instructions=inst, hard_timeout=hard_timeout,
+            match=match, instructions=inst,
             buffer_id=buffer_id if buffer_id is not None else ofproto.OFP_NO_BUFFER
         )
         datapath.send_msg(mod)
