@@ -715,7 +715,12 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 安裝默認流表
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+
+        mod = parser.OFPFlowMod(datapath=datapath, priority=0,
+                                match=match, instructions=inst)
+        datapath.send_msg(mod)
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None, hard_timeout=0):
         ofproto = datapath.ofproto
