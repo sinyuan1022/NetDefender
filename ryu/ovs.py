@@ -204,7 +204,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                          data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
                      )
                      datapath.send_msg(out)
-                     contiune
                      continue
                 # 其他情形才自動下發 flow
                 if out_port != ofproto.OFPP_FLOOD:
