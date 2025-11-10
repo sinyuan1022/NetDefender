@@ -208,10 +208,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 # 其他情形才自動下發 flow
                 if out_port != ofproto.OFPP_FLOOD:
                      match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-                     self.add_flow(datapath, 0, match, actions, msg.buffer_id)
+                     self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                      continue
                 else:
-                     self.add_flow(datapath, 0, match, actions)
+                     self.add_flow(datapath, 1, match, actions)
                                 
                 # 發送封包
                 data = None
@@ -714,7 +714,14 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 安裝默認流表
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = parser.OFPFlowMod(
+            datapath=0, priority=priority,
+            match=match, instructions=inst, hard_timeout=hard_timeout,
+            buffer_id=buffer_id if buffer_id is not None else ofproto.OFP_NO_BUFFER
+        )
+        datapath.send_msg(mod)
+
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None, hard_timeout=0):
         ofproto = datapath.ofproto
