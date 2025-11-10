@@ -206,11 +206,11 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                      datapath.send_msg(out)
                      return  # 不會安裝 flow，也不會再遇到 actions=LOCAL 的自動回補問題
                 # 其他情形才自動下發 flow
-                  if out_port != ofproto.OFPP_FLOOD:
+                if out_port != ofproto.OFPP_FLOOD:
                      match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
                      self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                      continue
-                  else:
+                else:
                      self.add_flow(datapath, 1, match, actions)
                                 
                 # 發送封包
