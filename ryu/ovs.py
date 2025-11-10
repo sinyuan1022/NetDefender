@@ -705,17 +705,17 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        """添加流表項目"""
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                             actions)]
-
-        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                match=match, instructions=inst)
-        datapath.send_msg(mod)
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None, hard_timeout=0):
+    ofproto = datapath.ofproto
+    parser = datapath.ofproto_parser
+    inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+    mod = parser.OFPFlowMod(
+        datapath=datapath, priority=priority,
+        match=match, instructions=inst,
+        idle_timeout=self.CONTAINER_TIMEOUT, hard_timeout=hard_timeout,
+        buffer_id=buffer_id if buffer_id is not None else ofproto.OFP_NO_BUFFER
+    )
+    datapath.send_msg(mod)
 
     def handle_service_packet(self, pkt, datapath, in_port, msg, dst_port):
         """處理發送到服務的封包"""
