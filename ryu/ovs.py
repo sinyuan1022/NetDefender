@@ -49,6 +49,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.dockerstart = dockerstart.start()
         self.docker_client = docker.from_env()
         self.container_monitor = hub.spawn(self._container_monitor)
+        self.allowed_controller_ip = None
         # Track last connection time for each IP by service
         self.ip_connection_times = {}
         # Map of IP to container for each service
@@ -876,9 +877,13 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if tcp_pkt.src_port in [2222, 2223]:  # 容器SSH端口
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
-
+        if self.allowed_controller_ip is None:
+            self.allowed_controller_ip = self.snort.getsnortip()
         # 處理與Snort相關的流量
         if ipv4_pkt and self.snort.getsnortip():
+            if tcp_pkt.dst_port == 6653 and (self.allowed_controller_ip != ipv4_pkt.src or self.allowed_controller_ip != ipv4_pkt.dst):
+                self.logger.warning(f"拒絕來自 {peer_ip} 的控制器")
+                return
             if ipv4_pkt.dst == self.snort.getsnortip() or ipv4_pkt.src == self.snort.getsnortip():
                 # 直接轉發Snort流量
                 dst = eth.dst
