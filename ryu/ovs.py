@@ -869,6 +869,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 處理SSH流量和容器返回流量
         if tcp_pkt and ipv4_pkt:
             # 處理發送到本地SSH服務的流量
+            if ipv4_pkt and self.snort.getsnortip() and self.allowed_controller_ip is None:
+                self.allowed_controller_ip = self.snort.getsnortip()
             if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
                 self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
                 return
@@ -877,13 +879,14 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if tcp_pkt.src_port in [2222, 2223]:  # 容器SSH端口
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
-        if self.allowed_controller_ip is None:
-            self.allowed_controller_ip = self.snort.getsnortip()
-        # 處理與Snort相關的流量
-        if ipv4_pkt and self.snort.getsnortip():
+                
+
             if tcp_pkt.dst_port == 6653 and (self.allowed_controller_ip != ipv4_pkt.src or self.allowed_controller_ip != ipv4_pkt.dst):
                 self.logger.warning(f"拒絕來自 {peer_ip} 的控制器")
                 return
+            
+        # 處理與Snort相關的流量
+        if ipv4_pkt and self.snort.getsnortip():
             if ipv4_pkt.dst == self.snort.getsnortip() or ipv4_pkt.src == self.snort.getsnortip():
                 # 直接轉發Snort流量
                 dst = eth.dst
