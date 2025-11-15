@@ -847,6 +847,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         """處理封包輸入事件"""
+        if len(msg.data) < 8:
+            self.logger.warning("Received too short data for OpenFlow header, dropped.")
+            return
         msg = ev.msg
         datapath = msg.datapath
         parser = datapath.ofproto_parser
