@@ -6,10 +6,8 @@ Ryu Python: Python3.9<br>
 Snort Server: Ubuntu22.04<br>
 Snort Python: Python3.9+
 # Attention
-  #is for comments
-  
-  Ryu server must be completed first
-  
+  #is for comments<br>
+  Ryu server must be completed first<br>
   Please connect to the internet before installing the two servers
   
   
