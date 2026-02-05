@@ -184,10 +184,4 @@ bash ./singel.sh
 
 ---
 
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome. Feel free to check the repository for more information.
-
----
-
 *This documentation provides a comprehensive guide to deploying NetDefender for network defense research and experimentation.*
