@@ -24,7 +24,8 @@ Snort Python: Python3.9+
       "command": "", #Docker command arguments
       "multi": "yes", #Whether to spawn multiple containers
       "max": 10, #Maximum concurrent connections
-      "max_containers":10 #Maximum number of containers allowed
+      "max_containers":10, #Maximum number of containers allowed
+      "send_response":"yes" # Whether to return packets
     },{
       #other honeypot
     }
