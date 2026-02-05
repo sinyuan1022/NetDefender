@@ -12,6 +12,23 @@ Snort Python: Python3.9+
 # network environment
 <img width="1019" height="637" alt="image" src="https://github.com/user-attachments/assets/3c2be482-1a8f-49ce-82ce-e933007d856f" />
 
+# config honeypot
+```joon
+{
+  "containers": [
+    {
+      "port": 22, #Packet enters the port
+      "image_name": "cowrie/cowrie", #Docker Image Name
+      "name": "ssh", #The container name can be any valid string
+      "target_port": 2222, #The container's egress port
+      "command": "", #Docker command arguments
+      "multi": "yes", #Whether to spawn multiple containers
+      "max": 10, #Maximum concurrent connections
+      "max_containers":10 #Maximum number of containers allowed
+    }
+  ]
+}
+```
 # Ryu server
 ```bash
 sudo -s
