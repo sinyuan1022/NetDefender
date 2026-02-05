@@ -12,7 +12,6 @@ Snort Python: Python3.9+
   
   Please connect to the internet before installing the two servers
   
-  Configure the config before installation
   
 # network environment
 <img width="1019" height="637" alt="image" src="https://github.com/user-attachments/assets/3c2be482-1a8f-49ce-82ce-e933007d856f" />
