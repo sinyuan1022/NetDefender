@@ -25,6 +25,8 @@ Snort Python: Python3.9+
       "multi": "yes", #Whether to spawn multiple containers
       "max": 10, #Maximum concurrent connections
       "max_containers":10 #Maximum number of containers allowed
+    },{
+      #other honeypot
     }
   ]
 }
