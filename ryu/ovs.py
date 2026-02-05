@@ -1,15 +1,12 @@
 from __future__ import print_function
-import array
 from os_ken.base import app_manager
 from os_ken.controller import ofp_event
 from os_ken.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from os_ken.controller.handler import set_ev_cls
 from os_ken.ofproto import ofproto_v1_3
-from os_ken.lib.packet import ether_types
 from os_ken.lib.packet import icmp
 import snortlib
-from os_ken.lib.packet import packet, ethernet, ipv4, tcp, udp, arp
-from os_ken.ofproto import ether, inet
+from os_ken.lib.packet import packet, ethernet, ipv4, tcp, udp
 from os_ken.lib import hub
 from datetime import datetime
 import hashlib
@@ -40,7 +37,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.connection_ip = {}
         socket_config = {'unixsock': False}
         self.dockerid = {}
-        self.docker_config = rc.config()
+        self.docker_config,self.monitor_port,self.return_port = rc.config()
         self.packet_store = []
         self.monitor_thread = hub.spawn(self._monitor)
         self.localIP = self.get_ip_address('br0')
@@ -50,26 +47,12 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.docker_client = docker.from_env()
         self.container_monitor = hub.spawn(self._container_monitor)
         self.allowed_controller_ip = None
-        # Track last connection time for each IP by service
         self.ip_connection_times = {}
-        # Map of IP to container for each service
         self.ip_container_map = {}
-        # Define how long an IP connection is considered "active" (seconds)
-        self.IP_CONNECTION_TIMEOUT = 300  # 5 minutes
-        # Count of unique active IPs per service
+        self.IP_CONNECTION_TIMEOUT = 300  
         self.service_active_ip_count = {}
-        # 容器狀態管理
-        # {service_name: {container_name: {"last_used": timestamp, "ip": client_ip, "is_primary": bool, "config": config, "active_connections": int}}}
         self.container_status = {}
-
-        # IP到容器的映射
-        # {service_name: {client_ip: container_name}}
-        self.ip_container_map = {}
-
-        # 定義容器超時時間(秒)
-        self.CONTAINER_TIMEOUT = 300  # 5分鐘
-
-        # 初始化所有服務
+        self.CONTAINER_TIMEOUT = 300
         self.initialize_services()
 
     def initialize_services(self):
@@ -143,10 +126,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
     def get_ip_address(self, interface_name):
         try:
-            result = subprocess.run(['ip', 'addr', 'show', interface_name], 
-                                  stdout=subprocess.PIPE, 
-                                  stderr=subprocess.PIPE, 
-                                  text=True)
+            result = subprocess.run(['ip', 'addr', 'show', interface_name],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    text=True)
 
             if result.returncode != 0:
                 print(f"Error: {result.stderr.strip()}")
@@ -166,8 +149,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
     def _monitor(self):
         """監控封包處理"""
         while True:
-            # 處理安全封包 (超過3秒沒有收到警告的封包)
-            while self.packet_store and (datetime.now() - self.packet_store[0][2]).total_seconds() > 3:
+            # 處理安全封包 (超過0.1秒沒有收到警告的封包)
+            while self.packet_store and (datetime.now() - self.packet_store[0][2]).total_seconds() > 0.1:
                 pkt_hash, msg, timestamp = self.packet_store.pop(0)
                 datapath = msg.datapath
                 parser = datapath.ofproto_parser
@@ -196,23 +179,23 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 # 如果輸出端口已知，添加流表
                 if out_port == ofproto.OFPP_LOCAL:
                     # 只發一次性 PacketOut，不安裝 flow
-                     actions = [parser.OFPActionOutput(out_port)]
-                     out = parser.OFPPacketOut(
-                         datapath=datapath,
-                         buffer_id=msg.buffer_id,
-                         in_port=in_port,
-                         actions=actions,
-                         data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
-                     )
-                     datapath.send_msg(out)
-                     continue
+                    actions = [parser.OFPActionOutput(out_port)]
+                    out = parser.OFPPacketOut(
+                        datapath=datapath,
+                        buffer_id=msg.buffer_id,
+                        in_port=in_port,
+                        actions=actions,
+                        data=msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
+                    )
+                    datapath.send_msg(out)
+                    continue
                 # 其他情形才自動下發 flow
                 if out_port != ofproto.OFPP_FLOOD:
-                     match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-                     self.add_flow(datapath, 0, match, actions, msg.buffer_id)
-                     continue
+                    match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                    self.add_flow(datapath, 0, match, actions, msg.buffer_id)
+                    continue
                 else:
-                     self.add_flow(datapath, 0, match, actions)
+                    self.add_flow(datapath, 0, match, actions)
 
                 # 發送封包
                 data = None
@@ -220,10 +203,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     data = msg.data
 
                 out = parser.OFPPacketOut(
-                    datapath=datapath, 
+                    datapath=datapath,
                     buffer_id=msg.buffer_id,
-                    in_port=in_port, 
-                    actions=actions, 
+                    in_port=in_port,
+                    actions=actions,
                     data=data
                 )
 
@@ -296,9 +279,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                                 container_ips = []
                                 if service_name in self.ip_container_map:
                                     for ip, assigned_container in self.ip_container_map[service_name].items():
-                                        if (assigned_container == container_name and 
-                                            ip in self.ip_connection_times[service_name] and
-                                            (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
+                                        if (assigned_container == container_name and
+                                                ip in self.ip_connection_times[service_name] and
+                                                (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
                                             container_ips.append(ip)
 
                                 # 如果容器沒有活躍的IP，移除它
@@ -381,9 +364,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             # 計算此容器的活躍IP數
             container_ips = 0
             for ip, assigned_container in self.ip_container_map.get(service_name, {}).items():
-                if (assigned_container == container_name and 
-                    ip in self.ip_connection_times.get(service_name, {}) and 
-                    (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
+                if (assigned_container == container_name and
+                        ip in self.ip_connection_times.get(service_name, {}) and
+                        (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
                     container_ips += 1
 
             # 如果容器有空間，計數加一
@@ -409,160 +392,174 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         if port not in self.docker_config or not self.docker_config[port]:
             self.logger.error(f"未知的服務端口 {port}")
             return None, None
+        container_names = []
+        service_configs = []
+        for service_config in self.docker_config[port]:
+            service_name = service_config.get('name', f'service_{port}')
 
-        # 獲取服務配置
-        service_config = self.docker_config[port][0]
-        service_name = service_config.get('name', f'service_{port}')
+            if service_name not in self.container_status:
+                self.logger.error(f"服務 {service_name} 未初始化")
+                container_names.append(None)
+                service_configs.append(None)
+                continue
+            current_time = datetime.now()
 
-        if service_name not in self.container_status:
-            self.logger.error(f"服務 {service_name} 未初始化")
-            return None, None
+            # 初始化IP連接時間追踪
+            self.ip_connection_times.setdefault(service_name, {})
+            self.ip_container_map.setdefault(service_name, {})
 
-        current_time = datetime.now()
+            # 更新此IP的連接時間
+            was_active_before = client_ip in self.ip_connection_times[service_name] and \
+                                (current_time - self.ip_connection_times[service_name][client_ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT
 
-        # 初始化IP連接時間追踪
-        self.ip_connection_times.setdefault(service_name, {})
-        self.ip_container_map.setdefault(service_name, {})
+            self.ip_connection_times[service_name][client_ip] = current_time
 
-        # 更新此IP的連接時間
-        was_active_before = client_ip in self.ip_connection_times[service_name] and \
-                        (current_time - self.ip_connection_times[service_name][client_ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT
+            # 如果此IP已經分配了容器
+            if client_ip in self.ip_container_map[service_name]:
+                container_name = self.ip_container_map[service_name][client_ip]
+                if container_name in self.container_status[service_name]:
+                    # 更新容器的最後使用時間
+                    self.container_status[service_name][container_name]["last_used"] = current_time
+                    self.logger.info(f"使用現有容器 {container_name} 給客戶端 {client_ip}")
+                    container_names.append(container_name)
+                    service_configs.append(self.container_status[service_name][container_name]["config"])
+                    continue
+            # 這是一個新IP或其先前的容器已消失
+            # 如果這是一個新活躍的IP，則增加活躍IP計數
+            if not was_active_before:
+                self.service_active_ip_count.setdefault(service_name, 0)
+                self.service_active_ip_count[service_name] += 1
+                self.logger.info(f"服務 {service_name} 的新活躍IP {client_ip}。總活躍IP數: {self.service_active_ip_count[service_name]}")
 
-        self.ip_connection_times[service_name][client_ip] = current_time
+            # 獲取容器容量和最大容器數
+            max_containers = int(service_config.get('max_containers', 10))  # 最大容器數，默認10
+            container_capacity = int(service_config.get('max', 1))  # 每個容器的最大IP數，從配置中讀取
 
-        # 如果此IP已經分配了容器
-        if client_ip in self.ip_container_map[service_name]:
-            container_name = self.ip_container_map[service_name][client_ip]
-            if container_name in self.container_status[service_name]:
-                # 更新容器的最後使用時間
-                self.container_status[service_name][container_name]["last_used"] = current_time
-                self.logger.info(f"使用現有容器 {container_name} 給客戶端 {client_ip}")
-                return container_name, self.container_status[service_name][container_name]["config"]
+            self.logger.info(f"服務 {service_name} 配置: 每容器最大IP數={container_capacity}, 最大容器數={max_containers}")
 
-        # 這是一個新IP或其先前的容器已消失
-        # 如果這是一個新活躍的IP，則增加活躍IP計數
-        if not was_active_before:
-            self.service_active_ip_count.setdefault(service_name, 0)
-            self.service_active_ip_count[service_name] += 1
-            self.logger.info(f"服務 {service_name} 的新活躍IP {client_ip}。總活躍IP數: {self.service_active_ip_count[service_name]}")
+            # 檢查服務是否支持多實例
+            multi_support = service_config.get('multi', 'no') == 'yes'
 
-        # 獲取容器容量和最大容器數
-        max_containers = int(service_config.get('max_containers', 10))  # 最大容器數，默認10
-        container_capacity = int(service_config.get('max', 1))  # 每個容器的最大IP數，從配置中讀取
+            # 找出所有運行中的容器以及每個容器當前服務的IP數量
+            containers_with_ips = {}
+            for container_name in self.container_status[service_name]:
+                try:
+                    # 檢查容器是否運行中
+                    container = self.docker_client.containers.get(container_name)
+                    if container.status == "running":
+                        # 計算分配給此容器的活躍IP
+                        active_ips = []
+                        for ip, assigned_container in self.ip_container_map[service_name].items():
+                            if (assigned_container == container_name and
+                                    ip in self.ip_connection_times[service_name] and
+                                    (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
+                                active_ips.append(ip)
 
-        self.logger.info(f"服務 {service_name} 配置: 每容器最大IP數={container_capacity}, 最大容器數={max_containers}")
+                        containers_with_ips[container_name] = {
+                            "ips": active_ips,
+                            "count": len(active_ips),
+                            "is_primary": self.container_status[service_name][container_name].get("is_primary", False)
+                        }
+                except Exception as e:
+                    self.logger.error(f"檢查容器 {container_name} 狀態時出錯: {e}")
 
-        # 檢查服務是否支持多實例
-        multi_support = service_config.get('multi', 'no') == 'yes'
-
-        # 找出所有運行中的容器以及每個容器當前服務的IP數量
-        containers_with_ips = {}
-        for container_name in self.container_status[service_name]:
-            try:
-                # 檢查容器是否運行中
-                container = self.docker_client.containers.get(container_name)
-                if container.status == "running":
-                    # 計算分配給此容器的活躍IP
-                    active_ips = []
-                    for ip, assigned_container in self.ip_container_map[service_name].items():
-                        if (assigned_container == container_name and 
-                            ip in self.ip_connection_times[service_name] and 
-                            (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
-                            active_ips.append(ip)
-
-                    containers_with_ips[container_name] = {
-                        "ips": active_ips,
-                        "count": len(active_ips),
-                        "is_primary": self.container_status[service_name][container_name].get("is_primary", False)
-                    }
-            except Exception as e:
-                self.logger.error(f"檢查容器 {container_name} 狀態時出錯: {e}")
-
-        # 首先，嘗試使用主容器（如果它有空間）
-        primary_container = f"{service_name}0"
-        if primary_container in containers_with_ips:
-            if containers_with_ips[primary_container]["count"] < container_capacity:
-                self.container_status[service_name][primary_container]["last_used"] = current_time
+            # 首先，嘗試使用主容器（如果它有空間）
+            primary_container = f"{service_name}0"
+            if primary_container in containers_with_ips:
+                if containers_with_ips[primary_container]["count"] < container_capacity:
+                    self.container_status[service_name][primary_container]["last_used"] = current_time
+                    self.ip_container_map[service_name][client_ip] = primary_container
+                    self.logger.info(f"將客戶端 {client_ip} 分配給主容器 {primary_container}，當前IP數: {containers_with_ips[primary_container]['count'] + 1}/{container_capacity}")
+                    container_names.append(primary_container)
+                    service_configs.append(self.container_status[service_name][primary_container]["config"])
+                    continue
+            # 如果不支持多實例，則使用主容器
+            if not multi_support:
                 self.ip_container_map[service_name][client_ip] = primary_container
-                self.logger.info(f"將客戶端 {client_ip} 分配給主容器 {primary_container}，當前IP數: {containers_with_ips[primary_container]['count'] + 1}/{container_capacity}")
-                return primary_container, self.container_status[service_name][primary_container]["config"]
+                self.logger.info(f"服務 {service_name} 不支持多實例，使用主容器給客戶端 {client_ip}")
+                container_names.append(primary_container)
+                service_configs.append(service_config)
+                continue
 
-        # 如果不支持多實例，則使用主容器
-        if not multi_support:
+            # 找到負載最輕的容器，它還沒有達到容量
+            available_containers = []
+            for container_name, info in containers_with_ips.items():
+                if info["count"] < container_capacity and not info["is_primary"]:
+                    available_containers.append((container_name, info["count"]))
+
+            # 按IP數量排序（最少的優先）
+            available_containers.sort(key=lambda x: x[1])
+
+            # 如果有可用容器且未達到容量，使用它
+            if available_containers:
+                container_name = available_containers[0][0]
+                self.container_status[service_name][container_name]["last_used"] = current_time
+                self.ip_container_map[service_name][client_ip] = container_name
+                new_count = containers_with_ips[container_name]["count"] + 1
+                self.logger.info(f"將客戶端 {client_ip} 分配給現有容器 {container_name}，當前IP數: {new_count}/{container_capacity}")
+                container_names.append(container_name)
+                service_configs.append(self.container_status[service_name][container_name]["config"])
+                continue
+
+            # 計算當前非主容器的數量
+            current_containers = len([c for c in containers_with_ips if not containers_with_ips[c]["is_primary"]])
+
+            # 計算需要的容器數 (向上取整(活躍IP數 / 每容器容量))
+            required_containers = math.ceil(self.service_active_ip_count.get(service_name, 0) / container_capacity)
+
+            self.logger.info(f"服務 {service_name} 有 {self.service_active_ip_count.get(service_name, 0)} 個活躍IP，需要 {required_containers} 個容器，當前有 {current_containers} 個非主容器")
+
+            # 檢查所有容器是否都已滿
+            all_containers_full = True
+            for container_name, info in containers_with_ips.items():
+                if info["count"] < container_capacity:
+                    all_containers_full = False
+                    break
+
+            # 只有當所有容器都已滿且未達到最大容器限制時才創建新容器
+            if all_containers_full and current_containers < max_containers:
+                container_index = len(self.container_status[service_name])
+                new_container_name = f"{service_name}{container_index}"
+                self.logger.info(f"為客戶端 {client_ip} 創建新容器 {new_container_name}。總活躍IP數: {self.service_active_ip_count.get(service_name, 0)}")
+
+                if start_new_container(new_container_name, service_config):
+                    self.container_status[service_name][new_container_name] = {
+                        "last_used": current_time,
+                        "ip": None,  # 不再使用單一IP記錄
+                        "is_primary": False,
+                        "config": service_config,
+                        "active_connections": 0  # 為了向後兼容
+                    }
+                    self.ip_container_map[service_name][client_ip] = new_container_name
+                    container_names.append(new_container_name)
+                    service_configs.append(service_config)
+                    continue
+
+            # 如果達到最大容器限制，則使用最不繁忙的容器
+            least_busy_container = None
+            min_ips = float('inf')
+
+            for container_name, info in containers_with_ips.items():
+                if not info["is_primary"] and info["count"] < min_ips:
+                    min_ips = info["count"]
+                    least_busy_container = container_name
+
+            # 如果找到了最不繁忙的容器，使用它
+            if least_busy_container:
+                self.container_status[service_name][least_busy_container]["last_used"] = current_time
+                self.ip_container_map[service_name][client_ip] = least_busy_container
+                self.logger.info(f"將客戶端 {client_ip} 分配給最不繁忙的容器 {least_busy_container}，當前IP數: {min_ips + 1}/{container_capacity}")
+                container_names.append(least_busy_container)
+                service_configs.append(self.container_status[service_name][least_busy_container]["config"])
+                continue
+
+            # 如果沒有其他選擇，則使用主容器
+            self.logger.info(f"無可用容器，將客戶端 {client_ip} 分配給主容器 {primary_container}")
             self.ip_container_map[service_name][client_ip] = primary_container
-            self.logger.info(f"服務 {service_name} 不支持多實例，使用主容器給客戶端 {client_ip}")
-            return primary_container, service_config
-
-        # 找到負載最輕的容器，它還沒有達到容量
-        available_containers = []
-        for container_name, info in containers_with_ips.items():
-            if info["count"] < container_capacity and not info["is_primary"]:
-                available_containers.append((container_name, info["count"]))
-
-        # 按IP數量排序（最少的優先）
-        available_containers.sort(key=lambda x: x[1])
-
-        # 如果有可用容器且未達到容量，使用它
-        if available_containers:
-            container_name = available_containers[0][0]
-            self.container_status[service_name][container_name]["last_used"] = current_time
-            self.ip_container_map[service_name][client_ip] = container_name
-            new_count = containers_with_ips[container_name]["count"] + 1
-            self.logger.info(f"將客戶端 {client_ip} 分配給現有容器 {container_name}，當前IP數: {new_count}/{container_capacity}")
-            return container_name, self.container_status[service_name][container_name]["config"]
-
-        # 計算當前非主容器的數量
-        current_containers = len([c for c in containers_with_ips if not containers_with_ips[c]["is_primary"]])
-
-        # 計算需要的容器數 (向上取整(活躍IP數 / 每容器容量))
-        required_containers = math.ceil(self.service_active_ip_count.get(service_name, 0) / container_capacity)
-
-        self.logger.info(f"服務 {service_name} 有 {self.service_active_ip_count.get(service_name, 0)} 個活躍IP，需要 {required_containers} 個容器，當前有 {current_containers} 個非主容器")
-
-        # 檢查所有容器是否都已滿
-        all_containers_full = True
-        for container_name, info in containers_with_ips.items():
-            if info["count"] < container_capacity:
-                all_containers_full = False
-                break
-
-        # 只有當所有容器都已滿且未達到最大容器限制時才創建新容器
-        if all_containers_full and current_containers < max_containers:
-            container_index = len(self.container_status[service_name])
-            new_container_name = f"{service_name}{container_index}"
-            self.logger.info(f"為客戶端 {client_ip} 創建新容器 {new_container_name}。總活躍IP數: {self.service_active_ip_count.get(service_name, 0)}")
-
-            if start_new_container(new_container_name, service_config):
-                self.container_status[service_name][new_container_name] = {
-                    "last_used": current_time,
-                    "ip": None,  # 不再使用單一IP記錄
-                    "is_primary": False,
-                    "config": service_config,
-                    "active_connections": 0  # 為了向後兼容
-                }
-                self.ip_container_map[service_name][client_ip] = new_container_name
-                return new_container_name, service_config
-
-        # 如果達到最大容器限制，則使用最不繁忙的容器
-        least_busy_container = None
-        min_ips = float('inf')
-
-        for container_name, info in containers_with_ips.items():
-            if not info["is_primary"] and info["count"] < min_ips:
-                min_ips = info["count"]
-                least_busy_container = container_name
-
-        # 如果找到了最不繁忙的容器，使用它
-        if least_busy_container:
-            self.container_status[service_name][least_busy_container]["last_used"] = current_time
-            self.ip_container_map[service_name][client_ip] = least_busy_container
-            self.logger.info(f"將客戶端 {client_ip} 分配給最不繁忙的容器 {least_busy_container}，當前IP數: {min_ips + 1}/{container_capacity}")
-            return least_busy_container, self.container_status[service_name][least_busy_container]["config"]
-
-        # 如果沒有其他選擇，則使用主容器
-        self.logger.info(f"無可用容器，將客戶端 {client_ip} 分配給主容器 {primary_container}")
-        self.ip_container_map[service_name][client_ip] = primary_container
-        return primary_container, service_config
+            container_names.append(primary_container)
+            service_configs.append(service_config)
+            continue
+        return container_names, service_configs
 
     def update_container_status(self, service_name, container_name, client_ip):
         """更新容器的狀態信息"""
@@ -745,48 +742,47 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
-
+        containers, services = self.get_available_container(ipv4_pkt.src, dst_port)
         # 獲取適合的容器
-        container_name, service_config = self.get_available_container(ipv4_pkt.src, dst_port)
+        for container_name, service_config in zip(containers, services):
+            if not container_name or not service_config:
+                self.logger.error(f"No container available for port {dst_port}")
+                self.alert_packet(pkt)  # 保存無法處理的封包
+                return
 
-        if not container_name or not service_config:
-            self.logger.error(f"No container available for port {dst_port}")
-            self.alert_packet(pkt)  # 保存無法處理的封包
-            return
+            # 獲取容器IP
+            target_ip = getip.getcontainer_ip(container_name)
+            if not target_ip:
+                self.logger.error(f"Could not get IP for container {container_name}")
+                self.alert_packet(pkt)  # 保存無法處理的封包
+                return
 
-        # 獲取容器IP
-        target_ip = getip.getcontainer_ip(container_name)
-        if not target_ip:
-            self.logger.error(f"Could not get IP for container {container_name}")
-            self.alert_packet(pkt)  # 保存無法處理的封包
-            return
+            # 設置目標端口
+            target_port = service_config.get('target_port', dst_port)
 
-        # 設置目標端口
-        target_port = service_config.get('target_port', dst_port)
+            # 建立連接映射
+            self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
 
-        # 建立連接映射
-        self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
+            self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
+                             f"{target_ip}:{target_port} (Container: {container_name})")
 
-        self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> " 
-                      f"{target_ip}:{target_port} (Container: {container_name})")
+            # 設置流表動作
+            actions = [
+                parser.OFPActionSetField(ipv4_dst=target_ip),
+                parser.OFPActionSetField(tcp_dst=target_port),
+                parser.OFPActionOutput(ofproto.OFPP_NORMAL)
+            ]
 
-        # 設置流表動作
-        actions = [
-            parser.OFPActionSetField(ipv4_dst=target_ip),
-            parser.OFPActionSetField(tcp_dst=target_port),
-            parser.OFPActionOutput(ofproto.OFPP_NORMAL)
-        ]
+            # 發送封包
+            out = parser.OFPPacketOut(
+                datapath=datapath,
+                buffer_id=msg.buffer_id if hasattr(msg, 'buffer_id') else ofproto.OFP_NO_BUFFER,
+                in_port=in_port,
+                actions=actions,
+                data=msg.data if hasattr(msg, 'data') else None
+            )
 
-        # 發送封包
-        out = parser.OFPPacketOut(
-            datapath=datapath,
-            buffer_id=msg.buffer_id if hasattr(msg, 'buffer_id') else ofproto.OFP_NO_BUFFER,
-            in_port=in_port,
-            actions=actions,
-            data=msg.data if hasattr(msg, 'data') else None
-        )
-
-        datapath.send_msg(out)
+            datapath.send_msg(out)
 
     def return_packet(self, pkt, datapath, in_port, msg):
         """處理從容器返回的封包"""
@@ -865,26 +861,27 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 獲取封包的IP和TCP層
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
-
         # 處理SSH流量和容器返回流量
         if tcp_pkt and ipv4_pkt:
-            # 處理發送到本地SSH服務的流量
+
             if ipv4_pkt and self.snort.getsnortip() and self.allowed_controller_ip is None:
                 self.allowed_controller_ip = self.snort.getsnortip()
-            if tcp_pkt.dst_port == 22 and ipv4_pkt.dst == self.localIP:
+            # 處理發送到honeypot服務的流量
+            if tcp_pkt.dst_port in self.monitor_port and ipv4_pkt.dst == self.localIP:
+
                 self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
                 return
 
             # 處理從容器返回的流量
-            if tcp_pkt.src_port in [2222, 2223]:  # 容器SSH端口
+            if tcp_pkt.src_port in self.return_port:  # 容器SSH端口
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
-                
+
 
             if tcp_pkt.dst_port == 6653 and (self.allowed_controller_ip != ipv4_pkt.src or self.allowed_controller_ip != ipv4_pkt.dst):
-                self.logger.warning(f"拒絕來自 {peer_ip} 的控制器")
+                self.logger.warning(f"reject from {ipv4_pkt.src} controller or packets received from port 6653")
                 return
-            
+
         # 處理與Snort相關的流量
         if ipv4_pkt and self.snort.getsnortip():
             if ipv4_pkt.dst == self.snort.getsnortip() or ipv4_pkt.src == self.snort.getsnortip():
