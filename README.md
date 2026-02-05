@@ -53,7 +53,7 @@ cd ./NetDefender/snort/
 bash ./snort_install.sh
 ```
 ## Single server combines the Ryu server and the Snort server into a single server
-# singel server
+# singel server(Not enabled)
 ```bash
 sudo -s
 
