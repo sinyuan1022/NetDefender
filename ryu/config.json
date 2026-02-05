@@ -6,9 +6,10 @@
       "name": "ssh",
       "target_port": 2222,
       "command": "",
-      "multi": "yes",
+      "multi": "yes", 
       "max": 10,
-      "max_containers":10
+      "max_containers":10,
+      "send_response":"yes"
     }
   ]
 }
