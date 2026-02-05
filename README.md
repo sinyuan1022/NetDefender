@@ -167,9 +167,9 @@ bash ./singel.sh
 ## 🚀 Getting Started
 
 1. **Prepare Your Environment**: Ensure both servers meet the system requirements listed above
-2. **Install Ryu Server**: Follow the Ryu server installation steps
-3. **Install Snort Server**: Complete the Snort server setup on a separate machine (or the same machine for testing)
-4. **Configure Honeypots**: Edit the JSON configuration file to define your honeypot services
+2. **Configure Honeypots**: Edit the JSON configuration file to define your honeypot services
+3. **Install Ryu Server**: Follow the Ryu server installation steps
+4. **Install Snort Server**: Complete the Snort server setup on a separate machine (or the same machine for testing)
 5. **Start Services**: Launch both Ryu and Snort services to begin monitoring and defense operations
 6. **Monitor Traffic**: Observe network traffic redirection and honeypot interactions
 
