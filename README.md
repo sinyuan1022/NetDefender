@@ -117,7 +117,7 @@ bash ./ryu_install.sh
 
 ---
 
-### Option 2: Snort Server Setup
+### Snort Server Setup
 
 After completing the Ryu server installation, proceed with the Snort server setup:
 
@@ -140,7 +140,7 @@ bash ./snort_install.sh
 
 ---
 
-### Option 3: Single Server Deployment (Experimental)
+### Option 2: Single Server Deployment (Experimental)
 
 > **⚠️ Note**: This option combines both Ryu and Snort servers on a single machine. This deployment mode is currently **not enabled** and should be used for testing purposes only.
 
