@@ -25,14 +25,14 @@ def start_new_container(container_name, config):
             name=container_name
         )
         
-        print(f"成功創建並啟動容器 {container_name}")
+        print(f"Successfully created and started container {container_name}")
         return True
     except docker.errors.ImageNotFound:
-        print(f"鏡像 {config['image_name']} 不存在。")
+        print(f"Image {config['image_name']} does not exist")
         return False
     except docker.errors.APIError as e:
-        print(f"啟動容器時出錯: {e}")
+        print(f"Error starting container: {e}")
         return False
     except Exception as e:
-        print(f"發生未知錯誤: {e}")
+        print(f"Unknown error occurred: {e}")
         return False
