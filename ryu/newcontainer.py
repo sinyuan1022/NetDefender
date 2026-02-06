@@ -13,7 +13,7 @@ def start_new_container(container_name, config):
             # 如果存在但未運行，則嘗試啟動
             for container in existing_containers:
                 if container.status != "running":
-                    container.start()
+                    container.restart()
                 return True
         
         # 創建並啟動新容器

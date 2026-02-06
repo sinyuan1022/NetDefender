@@ -23,6 +23,7 @@ from stopcontainer import stop_container
 import os
 import docker
 import math
+import json
 
 class SimpleSwitchSnort(app_manager.OSKenApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -49,11 +50,14 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.allowed_controller_ip = None
         self.ip_connection_times = {}
         self.ip_container_map = {}
-        self.IP_CONNECTION_TIMEOUT = 300  
+        self.IP_CONNECTION_TIMEOUT = 300
         self.service_active_ip_count = {}
         self.container_status = {}
         self.CONTAINER_TIMEOUT = 300
+        self.tmp_file = "connect_status.json.tmp"
+        self.final_file = "connect_status.json"
         self.initialize_services()
+
 
     def initialize_services(self):
         """初始化所有服務的容器管理"""
@@ -230,17 +234,60 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             del self.connection_map[key]
             #self.logger.info(f"Connection {key} expired and removed")
 
+    def save_container_status_json(self):
+        """將當前容器活躍 IP 資訊寫入 JSON"""
+        status = {}
+        current_time = datetime.now()
+
+        for service_name, containers in self.container_status.items():
+            status[service_name] = {}
+            for container_name, container_info in containers.items():
+                container_ips = []
+                if service_name in self.ip_container_map:
+                    for ip, assigned_container in self.ip_container_map[service_name].items():
+                        if assigned_container == container_name:
+                            last_time = self.ip_connection_times.get(service_name, {}).get(ip)
+                            if last_time and (
+                                    current_time - last_time).total_seconds() <= self.IP_CONNECTION_TIMEOUT:
+                                container_ips.append(ip)
+
+                status[service_name][container_name] = {
+                    "active_ips": len(container_ips),
+                    "ips": container_ips,
+                    "is_primary": container_info.get("is_primary", False),
+                    "last_used": container_info.get("last_used", None).isoformat() if container_info.get(
+                        "last_used") else None
+                }
+        with open(self.tmp_file, "w") as f:
+            json.dump(status, f, indent=2)
+        os.replace(self.tmp_file, self.final_file)
+    def container_stop_check(self, container_ips, service_name, container_name, current_time, container, status):
+        # 如果容器沒有活躍的IP，移除它
+        if not container_ips and (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
+            self.logger.info(f"stop inactive container:{container_name}")
+            stop_container(self, container_name, self.container_status)
+
+            # 清理IP映射
+            if service_name in self.ip_container_map:
+                for ip, container in list(self.ip_container_map[service_name].items()):
+                    if container == container_name:
+                        del self.ip_container_map[service_name][ip]
+            else:
+                self.logger.info(f"Restarting container {container_name}, {len(container_ips)} active IPs")
+                container.restart()
+
     def _container_monitor(self):
         """監控容器使用情況並管理生命週期"""
         while True:
             current_time = datetime.now()
-            self.cleanup_expired_connections(current_time,timeout=self.IP_CONNECTION_TIMEOUT)
+            self.cleanup_expired_connections(current_time, timeout=self.IP_CONNECTION_TIMEOUT)
 
             # 首先，清理過期的IP連接
             for service_name in list(self.ip_connection_times.keys()):
                 active_ips = 0
                 for ip in list(self.ip_connection_times[service_name].keys()):
-                    if (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT:
+                    if (current_time - self.ip_connection_times[service_name][
+                        ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT:
                         active_ips += 1
                     else:
                         # 清理過期的IP條目
@@ -270,68 +317,138 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 if service_config.get('multi', 'no') != 'yes':
                     continue
 
-                # 檢查我們是否需要備用容器
-                self._ensure_reserve_container(service_name)
+                # 收集所有非主容器的活躍狀態
+                inactive_containers = []
+                active_containers = []
 
                 for container_name, status in list(containers.items()):
                     try:
                         container = self.docker_client.containers.get(container_name)
 
-                        if container.status != "running":
-                            # 如果是主容器，重啟它
-                            if status.get("is_primary", False):
-                                self.logger.info(f"Restart primary comtainer {container_name}")
+                        # 如果是主容器，特殊處理
+                        if status.get("is_primary", False):
+                            if container.status != "running":
+                                self.logger.info(f"Restarting primary container {container_name}")
                                 container.restart()
+                            continue
+
+                        # 對於非主容器，檢查是否有活躍的IP
+                        container_ips = []
+                        if service_name in self.ip_container_map:
+                            for ip, assigned_container in self.ip_container_map[service_name].items():
+                                if (assigned_container == container_name and
+                                        ip in self.ip_connection_times[service_name] and
+                                        (current_time - self.ip_connection_times[service_name][
+                                            ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
+                                    container_ips.append(ip)
+
+                        # 只處理運行中的容器
+                        if container.status == "running":
+                            if container_ips:
+                                active_containers.append((container_name, container, status, container_ips))
                             else:
-                                # 對於非主容器，只有在需要時才保留它們
-                                # 檢查此容器是否有任何活躍的IP
-                                container_ips = []
-                                if service_name in self.ip_container_map:
-                                    for ip, assigned_container in self.ip_container_map[service_name].items():
-                                        if (assigned_container == container_name and
-                                                ip in self.ip_connection_times[service_name] and
-                                                (current_time - self.ip_connection_times[service_name][ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT):
-                                            container_ips.append(ip)
+                                is_expired = (current_time - status[
+                                    "last_used"]).total_seconds() > self.CONTAINER_TIMEOUT
+                                inactive_containers.append((container_name, container, status, is_expired))
+                        else:
+                            # 容器已經停止，清理記錄
+                            self.logger.debug(f"Container {container_name} is not running, removing from status")
+                            if container_name in list(self.container_status[service_name].keys()):
+                                del self.container_status[service_name][container_name]
 
-                                # 如果容器沒有活躍的IP，移除它
-                                if not container_ips and (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
-                                    self.logger.info(f"Remove inactive container:{container_name}")
-                                    stop_container(self, container_name, self.container_status)
-
-                                    # 清理IP映射
-                                    if service_name in self.ip_container_map:
-                                        for ip, container in list(self.ip_container_map[service_name].items()):
-                                            if container == container_name:
-                                                del self.ip_container_map[service_name][ip]
-                                # 否則重啟它
-                                else:
-                                    self.logger.info(f"Restarting container {container_name}, {len(container_ips)} active IPs")
-                                    container.restart()
+                            # 清理IP映射
+                            if service_name in self.ip_container_map:
+                                for ip, container_item in list(self.ip_container_map[service_name].items()):
+                                    if container_item == container_name:
+                                        del self.ip_container_map[service_name][ip]
 
                     except docker.errors.NotFound:
-                        # 如果容器不存在且是主容器，重新創建它
+                        # 容器不存在
                         if status.get("is_primary", False):
                             self.logger.info(f"Recreating primary container {container_name}")
                             if start_new_container(container_name, status["config"]):
                                 status["last_used"] = datetime.now()
                         else:
                             # 移除不存在容器的記錄
-                            if container_name in self.container_status[service_name]:
+                            self.logger.debug(f"Container {container_name} not found, removing from status")
+                            if container_name in list(self.container_status[service_name].keys()):
                                 del self.container_status[service_name][container_name]
 
                             # 清理IP映射
                             if service_name in self.ip_container_map:
-                                for ip, container in list(self.ip_container_map[service_name].items()):
-                                    if container == container_name:
+                                for ip, container_item in list(self.ip_container_map[service_name].items()):
+                                    if container_item == container_name:
                                         del self.ip_container_map[service_name][ip]
 
                     except Exception as e:
                         self.logger.error(f"Error monitoring container {container_name}: {e}")
 
+                # 處理活躍容器
+                for container_name, container, status, container_ips in active_containers:
+                    if container.status != "running":
+                        self.logger.info(
+                            f"Restarting active container {container_name} with {len(container_ips)} active IPs")
+                        container.restart()
+
+                # 處理不活躍容器：保留一個作為備用，其他的停止
+                if inactive_containers:
+                    inactive_containers.sort()
+
+                    # 保留第一個作為備用
+                    reserve_container_name, reserve_container, reserve_status, _ = inactive_containers[0]
+
+                    if reserve_container.status != "running":
+                        self.logger.info(f"Starting reserve container {reserve_container_name}")
+                        reserve_container.start()
+                    else:
+                        self.logger.debug(f"Reserve container {reserve_container_name} is ready")
+
+                    # 停止其他超時的容器並立即清理記錄
+                    for container_name, container, status, is_expired in inactive_containers[1:]:
+                        if is_expired:
+                            self.logger.info(f"Stopping inactive container: {container_name} (Timeout not used)")
+
+                            # 停止容器
+                            stop_container(self, container_name, self.container_status)
+
+                            # 立即從狀態中刪除記錄
+                            if container_name in list(self.container_status[service_name].keys()):
+                                del self.container_status[service_name][container_name]
+                                self.logger.debug(f"Removed {container_name} from container_status")
+
+                            # 清理IP映射
+                            if service_name in self.ip_container_map:
+                                for ip, container_item in list(self.ip_container_map[service_name].items()):
+                                    if container_item == container_name:
+                                        del self.ip_container_map[service_name][ip]
+                else:
+                    # 沒有不活躍容器，確保有備用
+                    self._ensure_reserve_container(service_name)
+            self.save_container_status_json()
             hub.sleep(10)
 
+    def get_next_available_container_name(self, service_name):
+        """獲取下一個可用的容器名稱，重用已停止容器的編號"""
+        # 獲取所有已存在的容器索引
+        existing_indices = set()
+
+        if service_name in self.container_status:
+            for container_name in self.container_status[service_name].keys():
+                # 從容器名中提取索引號
+                # 例如: "ssh0" -> 0, "ssh1" -> 1
+                if container_name.startswith(service_name):
+                    index_str = container_name[len(service_name):]
+                    if index_str.isdigit():
+                        existing_indices.add(int(index_str))
+
+        # 找到最小的未使用索引
+        container_index = 0
+        while container_index in existing_indices:
+            container_index += 1
+
+        return f"{service_name}{container_index}"
     def _ensure_reserve_container(self, service_name):
-        """確保服務有可用的備用容器（如果需要）"""
+        """確保服務有可用的備用容器"""
         if service_name not in self.container_status:
             return
 
@@ -384,8 +501,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
         # 如果沒有空間的容器，且未達到最大容器數，創建一個新的
         if containers_with_space == 0 and total_non_primary < max_containers:
-            container_index = len(self.container_status[service_name])
-            new_container_name = f"{service_name}{container_index}"
+            new_container_name = self.get_next_available_container_name(service_name)
             self.logger.info(
                 f"Created new standby container {new_container_name} for service {service_name}. Max IPs per container: {container_capacity}"
             )
@@ -436,7 +552,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     container_names.append(container_name)
                     service_configs.append(self.container_status[service_name][container_name]["config"])
                     continue
-            # 這是一個新IP或其先前的容器已消失
+
             # 如果這是一個新活躍的IP，則增加活躍IP計數
             if not was_active_before:
                 self.service_active_ip_count.setdefault(service_name, 0)
@@ -458,7 +574,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
             # 找出所有運行中的容器以及每個容器當前服務的IP數量
             containers_with_ips = {}
-            for container_name in self.container_status[service_name]:
+            for container_name in list(self.container_status[service_name].keys()):
                 try:
                     # 檢查容器是否運行中
                     container = self.docker_client.containers.get(container_name)
@@ -508,7 +624,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     available_containers.append((container_name, info["count"]))
 
             # 按IP數量排序（最少的優先）
-            available_containers.sort(key=lambda x: x[1])
+            #available_containers.sort(key=lambda x: x[1])
 
             # 如果有可用容器且未達到容量，使用它
             if available_containers:
@@ -541,8 +657,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
             # 只有當所有容器都已滿且未達到最大容器限制時才創建新容器
             if all_containers_full and current_containers < max_containers:
-                container_index = len(self.container_status[service_name])
-                new_container_name = f"{service_name}{container_index}"
+                new_container_name = self.get_next_available_container_name(service_name)
                 self.logger.info(
                     f"Created new container {new_container_name} for client {client_ip}. Total active IPs: {self.service_active_ip_count.get(service_name, 0)}"
                 )
