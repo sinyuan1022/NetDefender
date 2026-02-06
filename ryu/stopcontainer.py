@@ -26,8 +26,8 @@ def stop_container(self, container_name, container_status):
             
         self.logger.info(f"Successfully stopped and removed container {container_name}")
     except docker.errors.NotFound:
-        print(f"容器 {container_name} 不存在。")
+        print(f"Container {container_name} does not exist")
     except docker.errors.APIError as e:
-        print(f"刪除容器時出錯: {e}")
+        print(f"Error deleting container: {e}")
     except Exception as e:
-        print(f"發生未知錯誤: {e}")
+        print(f"Unknown error occurred: {e}")
