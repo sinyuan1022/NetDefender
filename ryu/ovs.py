@@ -60,69 +60,69 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         for port, configs in self.docker_config.items():
             if not configs:
                 continue
+            for config in configs:
+                service_name = config.get('name', f'service_{port}')
+                self.container_status[service_name] = {}
+                self.ip_container_map[service_name] = {}
 
-            service_name = configs[0].get('name', f'service_{port}')
-            self.container_status[service_name] = {}
-            self.ip_container_map[service_name] = {}
+                # 檢查主容器是否已經運行
+                container_name = f"{service_name}0"
 
-            # 檢查主容器是否已經運行
-            container_name = f"{service_name}0"
+                try:
+                    existing_containers = self.docker_client.containers.list(filters={"name": container_name})
 
-            try:
-                existing_containers = self.docker_client.containers.list(filters={"name": container_name})
-
-                if existing_containers:
-                    # 如果容器已存在，更新狀態
-                    self.container_status[service_name][container_name] = {
-                        "last_used": datetime.now(),
-                        "ip": None,
-                        "is_primary": True,
-                        "config": configs[0],
-                        "active_connections": 0
-                    }
-                    self.logger.info(f"Found existing container: {container_name}")
-                else:
-                    # 如果容器不存在，創建主容器
-                    self.logger.info(f"Creating primary container for service: {service_name}")
-                    if start_new_container(container_name, configs[0]):
+                    if existing_containers:
+                        # 如果容器已存在，更新狀態
                         self.container_status[service_name][container_name] = {
                             "last_used": datetime.now(),
                             "ip": None,
                             "is_primary": True,
-                            "config": configs[0],
+                            "config": config,
                             "active_connections": 0
                         }
+                        self.logger.info(f"Found existing container: {container_name}")
+                    else:
+                        # 如果容器不存在，創建主容器
+                        self.logger.info(f"Creating primary container for service: {service_name}")
+                        if start_new_container(container_name, config):
+                            self.container_status[service_name][container_name] = {
+                                "last_used": datetime.now(),
+                                "ip": None,
+                                "is_primary": True,
+                                "config": config,
+                                "active_connections": 0
+                            }
 
-                # 對於支持多開的服務，預先創建一個備用容器
-                if configs[0].get('multi', 'no') == 'yes':
-                    reserve_container_name = f"{service_name}1"
+                    # 對於支持多開的服務，預先創建一個備用容器
+                    if config.get('multi', 'no') == 'yes':
+                        reserve_container_name = f"{service_name}1"
 
-                    try:
-                        reserve_containers = self.docker_client.containers.list(filters={"name": reserve_container_name})
+                        try:
+                            reserve_containers = self.docker_client.containers.list(filters={"name": reserve_container_name})
 
-                        if not reserve_containers:
-                            self.logger.info(f"Creating reserve container: {reserve_container_name}")
-                            if start_new_container(reserve_container_name, configs[0]):
+                            if not reserve_containers:
+                                self.logger.info(f"Creating reserve container: {reserve_container_name}")
+                                if start_new_container(reserve_container_name, config):
+                                    self.container_status[service_name][reserve_container_name] = {
+                                        "last_used": datetime.now(),
+                                        "ip": None,
+                                        "is_primary": False,
+                                        "config": config,
+                                        "active_connections": 0
+                                    }
+                            else:
                                 self.container_status[service_name][reserve_container_name] = {
                                     "last_used": datetime.now(),
                                     "ip": None,
                                     "is_primary": False,
-                                    "config": configs[0],
+                                    "config": config,
                                     "active_connections": 0
                                 }
-                        else:
-                            self.container_status[service_name][reserve_container_name] = {
-                                "last_used": datetime.now(),
-                                "ip": None,
-                                "is_primary": False,
-                                "config": configs[0],
-                                "active_connections": 0
-                            }
-                    except Exception as e:
-                        self.logger.error(f"Error creating reserve container: {e}")
+                        except Exception as e:
+                            self.logger.error(f"Error creating reserve container: {e}")
 
-            except Exception as e:
-                self.logger.error(f"Error initializing service {service_name}: {e}")
+                except Exception as e:
+                    self.logger.error(f"Error initializing service {service_name}: {e}")
 
     def get_ip_address(self, interface_name):
         try:
@@ -218,10 +218,23 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.ip_connection_times.setdefault(service_name, {})
         self.ip_connection_times[service_name][client_ip] = datetime.now()
 
+    def cleanup_expired_connections(self, current_time, timeout=60):
+        expired_keys = []
+
+        for key, value in self.connection_map.items():
+            last_time = value[1]
+            if (current_time - last_time).total_seconds() > timeout:
+                expired_keys.append(key)
+
+        for key in expired_keys:
+            del self.connection_map[key]
+            #self.logger.info(f"Connection {key} expired and removed")
+
     def _container_monitor(self):
         """監控容器使用情況並管理生命週期"""
         while True:
             current_time = datetime.now()
+            self.cleanup_expired_connections(current_time,timeout=self.IP_CONNECTION_TIMEOUT)
 
             # 首先，清理過期的IP連接
             for service_name in list(self.ip_connection_times.keys()):
@@ -253,10 +266,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 if not service_config:
                     continue
 
-                # 獲取容器配置
-                max_containers = int(service_config.get('max_containers', 10))  # 最大容器數，默認10
-                container_capacity = int(service_config.get('max', 1))  # 每個容器的最大IP數
-
                 # 檢查是否支持多實例
                 if service_config.get('multi', 'no') != 'yes':
                     continue
@@ -271,7 +280,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                         if container.status != "running":
                             # 如果是主容器，重啟它
                             if status.get("is_primary", False):
-                                self.logger.info(f"重啟主容器 {container_name}")
+                                self.logger.info(f"Restart primary comtainer {container_name}")
                                 container.restart()
                             else:
                                 # 對於非主容器，只有在需要時才保留它們
@@ -286,7 +295,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
                                 # 如果容器沒有活躍的IP，移除它
                                 if not container_ips and (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
-                                    self.logger.info(f"移除不活躍的容器 {container_name}")
+                                    self.logger.info(f"Remove inactive container:{container_name}")
                                     stop_container(self, container_name, self.container_status)
 
                                     # 清理IP映射
@@ -296,13 +305,13 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                                                 del self.ip_container_map[service_name][ip]
                                 # 否則重啟它
                                 else:
-                                    self.logger.info(f"重啟容器 {container_name}，有 {len(container_ips)} 個活躍IP")
+                                    self.logger.info(f"Restarting container {container_name}, {len(container_ips)} active IPs")
                                     container.restart()
 
                     except docker.errors.NotFound:
                         # 如果容器不存在且是主容器，重新創建它
                         if status.get("is_primary", False):
-                            self.logger.info(f"重新創建主容器 {container_name}")
+                            self.logger.info(f"Recreating primary container {container_name}")
                             if start_new_container(container_name, status["config"]):
                                 status["last_used"] = datetime.now()
                         else:
@@ -317,7 +326,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                                         del self.ip_container_map[service_name][ip]
 
                     except Exception as e:
-                        self.logger.error(f"監控容器 {container_name} 時出錯: {e}")
+                        self.logger.error(f"Error monitoring container {container_name}: {e}")
 
             hub.sleep(10)
 
@@ -377,7 +386,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         if containers_with_space == 0 and total_non_primary < max_containers:
             container_index = len(self.container_status[service_name])
             new_container_name = f"{service_name}{container_index}"
-            self.logger.info(f"為服務 {service_name} 創建新的備用容器 {new_container_name}。每容器最大IP數: {container_capacity}")
+            self.logger.info(
+                f"Created new standby container {new_container_name} for service {service_name}. Max IPs per container: {container_capacity}"
+            )
 
             if start_new_container(new_container_name, config):
                 self.container_status[service_name][new_container_name] = {
@@ -390,7 +401,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
     def get_available_container(self, client_ip, port):
         """分配容器給指定的端口和客戶端IP"""
         if port not in self.docker_config or not self.docker_config[port]:
-            self.logger.error(f"未知的服務端口 {port}")
+            self.logger.error(f"Unknown service port {port}")
             return None, None
         container_names = []
         service_configs = []
@@ -398,7 +409,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             service_name = service_config.get('name', f'service_{port}')
 
             if service_name not in self.container_status:
-                self.logger.error(f"服務 {service_name} 未初始化")
+                self.logger.error(f"Service {service_name} not initialized")
                 container_names.append(None)
                 service_configs.append(None)
                 continue
@@ -412,6 +423,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             was_active_before = client_ip in self.ip_connection_times[service_name] and \
                                 (current_time - self.ip_connection_times[service_name][client_ip]).total_seconds() <= self.IP_CONNECTION_TIMEOUT
 
+
             self.ip_connection_times[service_name][client_ip] = current_time
 
             # 如果此IP已經分配了容器
@@ -420,7 +432,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 if container_name in self.container_status[service_name]:
                     # 更新容器的最後使用時間
                     self.container_status[service_name][container_name]["last_used"] = current_time
-                    self.logger.info(f"使用現有容器 {container_name} 給客戶端 {client_ip}")
+                    #self.logger.info(f"Using existing container {container_name} for client {client_ip}")
                     container_names.append(container_name)
                     service_configs.append(self.container_status[service_name][container_name]["config"])
                     continue
@@ -429,13 +441,17 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if not was_active_before:
                 self.service_active_ip_count.setdefault(service_name, 0)
                 self.service_active_ip_count[service_name] += 1
-                self.logger.info(f"服務 {service_name} 的新活躍IP {client_ip}。總活躍IP數: {self.service_active_ip_count[service_name]}")
+                self.logger.info(
+                    f"New active IP {client_ip} for service {service_name}. Total active IPs: {self.service_active_ip_count[service_name]}"
+                )
 
             # 獲取容器容量和最大容器數
             max_containers = int(service_config.get('max_containers', 10))  # 最大容器數，默認10
             container_capacity = int(service_config.get('max', 1))  # 每個容器的最大IP數，從配置中讀取
 
-            self.logger.info(f"服務 {service_name} 配置: 每容器最大IP數={container_capacity}, 最大容器數={max_containers}")
+            self.logger.info(
+                f"Service {service_name} configuration: max IPs per container={container_capacity}, max containers={max_containers}"
+            )
 
             # 檢查服務是否支持多實例
             multi_support = service_config.get('multi', 'no') == 'yes'
@@ -461,7 +477,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                             "is_primary": self.container_status[service_name][container_name].get("is_primary", False)
                         }
                 except Exception as e:
-                    self.logger.error(f"檢查容器 {container_name} 狀態時出錯: {e}")
+                    self.logger.error(f"Error checking status of container {container_name}: {e}")
 
             # 首先，嘗試使用主容器（如果它有空間）
             primary_container = f"{service_name}0"
@@ -469,14 +485,18 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 if containers_with_ips[primary_container]["count"] < container_capacity:
                     self.container_status[service_name][primary_container]["last_used"] = current_time
                     self.ip_container_map[service_name][client_ip] = primary_container
-                    self.logger.info(f"將客戶端 {client_ip} 分配給主容器 {primary_container}，當前IP數: {containers_with_ips[primary_container]['count'] + 1}/{container_capacity}")
+                    self.logger.info(
+                        f"Assigned client {client_ip} to primary container {primary_container}, current IP count: {containers_with_ips[primary_container]['count'] + 1}/{container_capacity}"
+                    )
                     container_names.append(primary_container)
                     service_configs.append(self.container_status[service_name][primary_container]["config"])
                     continue
             # 如果不支持多實例，則使用主容器
             if not multi_support:
                 self.ip_container_map[service_name][client_ip] = primary_container
-                self.logger.info(f"服務 {service_name} 不支持多實例，使用主容器給客戶端 {client_ip}")
+                self.logger.info(
+                    f"Service {service_name} does not support multiple instances, using primary container for client {client_ip}"
+                )
                 container_names.append(primary_container)
                 service_configs.append(service_config)
                 continue
@@ -496,7 +516,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 self.container_status[service_name][container_name]["last_used"] = current_time
                 self.ip_container_map[service_name][client_ip] = container_name
                 new_count = containers_with_ips[container_name]["count"] + 1
-                self.logger.info(f"將客戶端 {client_ip} 分配給現有容器 {container_name}，當前IP數: {new_count}/{container_capacity}")
+                self.logger.info(f"Client {client_ip} assigned to existing container {container_name}. Current usage: {new_count}/{container_capacity} IPs")
                 container_names.append(container_name)
                 service_configs.append(self.container_status[service_name][container_name]["config"])
                 continue
@@ -507,7 +527,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             # 計算需要的容器數 (向上取整(活躍IP數 / 每容器容量))
             required_containers = math.ceil(self.service_active_ip_count.get(service_name, 0) / container_capacity)
 
-            self.logger.info(f"服務 {service_name} 有 {self.service_active_ip_count.get(service_name, 0)} 個活躍IP，需要 {required_containers} 個容器，當前有 {current_containers} 個非主容器")
+            self.logger.info(
+                f"Service {service_name} has {self.service_active_ip_count.get(service_name, 0)} active IPs, "
+                f"requires {required_containers} containers, currently {current_containers} non-primary containers running"
+            )
 
             # 檢查所有容器是否都已滿
             all_containers_full = True
@@ -520,7 +543,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if all_containers_full and current_containers < max_containers:
                 container_index = len(self.container_status[service_name])
                 new_container_name = f"{service_name}{container_index}"
-                self.logger.info(f"為客戶端 {client_ip} 創建新容器 {new_container_name}。總活躍IP數: {self.service_active_ip_count.get(service_name, 0)}")
+                self.logger.info(
+                    f"Created new container {new_container_name} for client {client_ip}. Total active IPs: {self.service_active_ip_count.get(service_name, 0)}"
+                )
 
                 if start_new_container(new_container_name, service_config):
                     self.container_status[service_name][new_container_name] = {
@@ -548,13 +573,17 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if least_busy_container:
                 self.container_status[service_name][least_busy_container]["last_used"] = current_time
                 self.ip_container_map[service_name][client_ip] = least_busy_container
-                self.logger.info(f"將客戶端 {client_ip} 分配給最不繁忙的容器 {least_busy_container}，當前IP數: {min_ips + 1}/{container_capacity}")
+                self.logger.info(
+                    f"Assigned client {client_ip} to the least busy container {least_busy_container}, current IP count: {min_ips + 1}/{container_capacity}"
+                )
                 container_names.append(least_busy_container)
                 service_configs.append(self.container_status[service_name][least_busy_container]["config"])
                 continue
 
             # 如果沒有其他選擇，則使用主容器
-            self.logger.info(f"無可用容器，將客戶端 {client_ip} 分配給主容器 {primary_container}")
+            self.logger.info(
+                f"No available containers, assigning client {client_ip} to primary container {primary_container}"
+            )
             self.ip_container_map[service_name][client_ip] = primary_container
             container_names.append(primary_container)
             service_configs.append(service_config)
@@ -759,12 +788,16 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
             # 設置目標端口
             target_port = service_config.get('target_port', dst_port)
-
+            current_time = datetime.now()
             # 建立連接映射
-            self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = (ipv4_pkt.dst, tcp_pkt.dst_port)
+            entry = self.connection_map.get((ipv4_pkt.src, tcp_pkt.src_port))
+            if entry and entry[0] == (ipv4_pkt.dst, tcp_pkt.dst_port):
+                entry[1] = current_time
+            else:
+                self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = [(ipv4_pkt.dst, tcp_pkt.dst_port),current_time]
 
-            self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
-                             f"{target_ip}:{target_port} (Container: {container_name})")
+            #self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
+                             #f"{target_ip}:{target_port} (Container: {container_name})")
 
             # 設置流表動作
             actions = [
@@ -798,12 +831,12 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 獲取原始連接信息
         original_src = self.connection_map.get((ipv4_pkt.dst, tcp_pkt.dst_port))
 
-        self.logger.info(f"Incoming redirected traffic: {ipv4_pkt.src}:{tcp_pkt.src_port} -> {ipv4_pkt.dst}:{tcp_pkt.dst_port}")
+        #self.logger.info(f"Incoming redirected traffic: {ipv4_pkt.src}:{tcp_pkt.src_port} -> {ipv4_pkt.dst}:{tcp_pkt.dst_port}")
 
         if original_src:
-            original_src_ip, original_src_port = original_src
+            original_src_ip, original_src_port = original_src[0]
 
-            self.logger.info(f"Spoofing back to: {original_src_ip}:{original_src_port}")
+            #self.logger.info(f"Spoofing back to: {original_src_ip}:{original_src_port}")
 
             # 設置流表動作
             actions = [
