@@ -24,6 +24,7 @@ import os
 import docker
 import math
 import json
+import controller_config
 
 class SimpleSwitchSnort(app_manager.OSKenApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -32,11 +33,13 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitchSnort, self).__init__(*args, **kwargs)
         self.snort = kwargs['snortlib']
-        self.snort_port = 3
+        self.snort_port = controller_config.snortport
+        self.controller_port = controller_config.controller_port
+        self.controller_ip = controller_config.controller_ip
         self.mac_to_port = {}
         self.connection_map = {}
         self.connection_ip = {}
-        socket_config = {'unixsock': False}
+        socket_config = {'unixsock': False,'port':self.snort_port}
         self.dockerid = {}
         self.docker_config,self.monitor_port,self.return_port = rc.config()
         self.packet_store = []
@@ -47,15 +50,16 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.dockerstart = dockerstart.start()
         self.docker_client = docker.from_env()
         self.container_monitor = hub.spawn(self._container_monitor)
-        self.allowed_controller_ip = None
+        self.allowed_snort_ip = None
         self.ip_connection_times = {}
         self.ip_container_map = {}
-        self.IP_CONNECTION_TIMEOUT = 300
+        self.IP_CONNECTION_TIMEOUT = controller_config.IP_CONNECTION_TIMEOUT
         self.service_active_ip_count = {}
         self.container_status = {}
-        self.CONTAINER_TIMEOUT = 300
+        self.CONTAINER_TIMEOUT = controller_config.CONTAINER_TIMEOUT
         self.tmp_file = "connect_status.json.tmp"
         self.final_file = "connect_status.json"
+        self.maxpercent = min(max(controller_config.maxpercent, 0.5), 1)
         self.initialize_services()
 
 
@@ -261,20 +265,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         with open(self.tmp_file, "w") as f:
             json.dump(status, f, indent=2)
         os.replace(self.tmp_file, self.final_file)
-    def container_stop_check(self, container_ips, service_name, container_name, current_time, container, status):
-        # 如果容器沒有活躍的IP，移除它
-        if not container_ips and (current_time - status["last_used"]).total_seconds() > self.CONTAINER_TIMEOUT:
-            self.logger.info(f"stop inactive container:{container_name}")
-            stop_container(self, container_name, self.container_status)
-
-            # 清理IP映射
-            if service_name in self.ip_container_map:
-                for ip, container in list(self.ip_container_map[service_name].items()):
-                    if container == container_name:
-                        del self.ip_container_map[service_name][ip]
-            else:
-                self.logger.info(f"Restarting container {container_name}, {len(container_ips)} active IPs")
-                container.restart()
 
     def _container_monitor(self):
         """監控容器使用情況並管理生命週期"""
@@ -435,7 +425,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         if service_name in self.container_status:
             for container_name in self.container_status[service_name].keys():
                 # 從容器名中提取索引號
-                # 例如: "ssh0" -> 0, "ssh1" -> 1
                 if container_name.startswith(service_name):
                     index_str = container_name[len(service_name):]
                     if index_str.isdigit():
@@ -475,7 +464,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
         # 獲取容器配置
         max_containers = int(config.get('max_containers', 10))  # 最大容器數，默認10
-        container_capacity = int(config.get('max', 1))  # 每個容器的最大IP數
+        container_capacity = int(config.get('max', 10))  # 每個容器的最大IP數
 
         # 檢查所有容器的負載情況
         containers_with_space = 0
@@ -499,8 +488,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             if container_ips < container_capacity:
                 containers_with_space += 1
 
-        # 如果沒有空間的容器，且未達到最大容器數，創建一個新的
-        if containers_with_space == 0 and total_non_primary < max_containers:
+        # 如果使用容器空間達到多少%，且未達到最大容器數，創建一個新的
+        if (container_capacity - containers_with_space) / container_capacity > self.maxpercent and total_non_primary < max_containers:
             new_container_name = self.get_next_available_container_name(service_name)
             self.logger.info(
                 f"Created new standby container {new_container_name} for service {service_name}. Max IPs per container: {container_capacity}"
@@ -1012,8 +1001,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         # 處理SSH流量和容器返回流量
         if tcp_pkt and ipv4_pkt:
 
-            if ipv4_pkt and self.snort.getsnortip() and self.allowed_controller_ip is None:
-                self.allowed_controller_ip = self.snort.getsnortip()
+            if ipv4_pkt and self.snort.getsnortip() and self.allowed_snort_ip is None:
+                self.allowed_snort_ip = self.snort.getsnortip()
             # 處理發送到honeypot服務的流量
             if tcp_pkt.dst_port in self.monitor_port and ipv4_pkt.dst == self.localIP:
 
@@ -1025,9 +1014,12 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
 
+            if tcp_pkt.dst_port == self.snort_port  and (self.allowed_snort_ip != ipv4_pkt.src or self.allowed_snort_ip != ipv4_pkt.dst):
+                self.logger.warning(f"reject from {ipv4_pkt.src} snort or packets received from port {tcp_pkt.dst_port}")
+                return
 
-            if tcp_pkt.dst_port == 6653 and (self.allowed_controller_ip != ipv4_pkt.src or self.allowed_controller_ip != ipv4_pkt.dst):
-                self.logger.warning(f"reject from {ipv4_pkt.src} controller or packets received from port 6653")
+            if tcp_pkt.dst_port == self.controller_port and (self.controller_ip != ipv4_pkt.src or self.controller_ip != ipv4_pkt.dst):
+                self.logger.warning(f"reject from {ipv4_pkt.src} controller or packets received from port {tcp_pkt.dst_port}")
                 return
 
         # 處理與Snort相關的流量

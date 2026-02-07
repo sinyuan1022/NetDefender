@@ -17,8 +17,8 @@ def config():
                     'name': container.get('name', f'service_{port}'),
                     'command': container.get('command', ''),
                     'multi': container.get('multi', 'no'),
-                    'max': int(container.get('max', 1)),
-                    'max_containers':int(container.get('max_containers', 1)),
+                    'max': int(container.get('max', 10)),
+                    'max_containers':int(container.get('max_containers', 10)),
                     "send_response": container.get('send_response', 'no')
                 }
                 if port not in port_to_container:
