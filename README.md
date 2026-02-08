@@ -87,7 +87,7 @@ NetDefender uses a JSON-based configuration file to define honeypot containers. 
 | **command** | String | Additional Docker command arguments (optional) |
 | **multi** | String | Whether to spawn multiple container instances (`"yes"` or `"no"`) |
 | **max** | Integer | Maximum number of concurrent connections allowed |
-| **max_containers** | Integer | Maximum number of container instances that can be spawned |
+| **max_containers** | Integer | Maximum number of container instances that can be spawned (excluding the primary container) |
 | **send_response** | String | Whether to send response packets back to the source (`"yes"` or `"no"`) |
 
 ---
