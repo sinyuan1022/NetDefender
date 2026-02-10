@@ -241,6 +241,17 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             del self.connection_map[key]
             #self.logger.info(f"Connection {key} expired and removed")
 
+    def get_connections_by_src(self,src_ip):
+        matches = []
+        for (ip, src_port, proto), (dst_info, ts) in self.connection_map.items():
+            if ip == src_ip:
+                dst_ip, dst_port = dst_info
+                matches.append({
+                    "src_port": src_port,
+                    "protocol": proto,
+                    "dst_port": dst_port,
+                })
+        return matches
     def save_container_status_json(self):
         """將當前容器活躍 IP 資訊寫入 JSON"""
         status = {}
@@ -260,7 +271,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
                 status[service_name][container_name] = {
                     "active_ips": len(container_ips),
-                    "ips": container_ips,
+                    "ips":[{
+                            "ip": ip,
+                            "ports": self.get_connections_by_src(ip) # 每個 IP 都帶這些 port/proto
+                        } for ip in container_ips],
                     "is_primary": container_info.get("is_primary", False),
                     "last_used": container_info.get("last_used", None).isoformat() if container_info.get(
                         "last_used") else None
@@ -749,6 +763,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         pkt = packet.Packet(msg.pkt)
 
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+
         if not ipv4_pkt or ipv4_pkt.dst != self.localIP:
             return
 
@@ -909,7 +924,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             # 設置目標端口
             target_port = service_config.get('target_port', dst_port)
             current_time = datetime.now()
-
             # 建立連接映射（區分 TCP 和 UDP）
             connection_key = (ipv4_pkt.src, src_port, protocol_name)
             entry = self.connection_map.get(connection_key)
