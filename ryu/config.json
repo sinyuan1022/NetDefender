@@ -1,15 +1,41 @@
 {
   "containers": [
     {
-      "port": 22,
       "image_name": "cowrie/cowrie",
       "name": "ssh",
-      "target_port": 2222,
+      "ports": [{"host_port": 22, "container_port": 2222, "protocol": "tcp"}],
       "command": "",
       "multi": "yes", 
       "max": 10,
       "max_containers":10,
       "send_response":"yes"
+    },
+    {
+      "image_name": "dinotools/dionaea",
+      "name": "dionaea",
+      "ports": [
+        {"host_port": 21, "container_port": 21, "protocol": "tcp"},
+        {"host_port": 42, "container_port": 42, "protocol": "tcp"},
+        {"host_port": 69, "container_port": 69, "protocol": "udp"},
+        {"host_port": 80, "container_port": 80, "protocol": "tcp"},
+        {"host_port": 135, "container_port": 135, "protocol": "tcp"},
+        {"host_port": 443, "container_port": 443, "protocol": "tcp"},
+        {"host_port": 445, "container_port": 445, "protocol": "tcp"},
+        {"host_port": 1433, "container_port": 1433, "protocol": "tcp"},
+        {"host_port": 1723, "container_port": 1723, "protocol": "tcp"},
+        {"host_port": 1883, "container_port": 1883, "protocol": "tcp"},
+        {"host_port": 1900, "container_port": 1900, "protocol": "udp"},
+        {"host_port": 3306, "container_port": 3306, "protocol": "tcp"},
+        {"host_port": 5060, "container_port": 5060, "protocol": "tcp"},
+        {"host_port": 5060, "container_port": 5060, "protocol": "udp"},
+        {"host_port": 5061, "container_port": 5061, "protocol": "tcp"},
+        {"host_port": 11211, "container_port": 11211, "protocol": "tcp"}
+      ],
+      "command": "",
+      "multi": "yes",
+      "max": 10,
+      "max_containers": 10,
+      "send_response": "yes"
     }
   ]
 }

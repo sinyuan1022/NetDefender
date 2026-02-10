@@ -41,7 +41,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.connection_ip = {}
         socket_config = {'unixsock': False,'port':self.snort_port}
         self.dockerid = {}
-        self.docker_config,self.monitor_port,self.return_port = rc.config()
+        self.docker_config,self.tcp_monitor_port,self.tcp_return_port,self.udp_monitor_port,self.udp_return_port = rc.config()
         self.packet_store = []
         self.monitor_thread = hub.spawn(self._monitor)
         self.localIP = self.get_ip_address('br0')
@@ -65,6 +65,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
     def initialize_services(self):
         """初始化所有服務的容器管理"""
+        container_check = []
         for port, configs in self.docker_config.items():
             if not configs:
                 continue
@@ -78,7 +79,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
                 try:
                     existing_containers = self.docker_client.containers.list(filters={"name": container_name})
-
                     if existing_containers:
                         # 如果容器已存在，更新狀態
                         self.container_status[service_name][container_name] = {
@@ -88,7 +88,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                             "config": config,
                             "active_connections": 0
                         }
-                        self.logger.info(f"Found existing container: {container_name}")
+                        if container_name not in container_check:
+                            self.logger.info(f"Found existing container: {container_name}")
                     else:
                         # 如果容器不存在，創建主容器
                         self.logger.info(f"Creating primary container for service: {service_name}")
@@ -100,6 +101,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                                 "config": config,
                                 "active_connections": 0
                             }
+
+                    container_check.append(container_name)
+
 
                     # 對於支持多開的服務，預先創建一個備用容器
                     if config.get('multi', 'no') == 'yes':
@@ -157,8 +161,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
     def _monitor(self):
         """監控封包處理"""
         while True:
-            # 處理安全封包 (超過0.1秒沒有收到警告的封包)
-            while self.packet_store and (datetime.now() - self.packet_store[0][2]).total_seconds() > 0.1:
+            # 處理安全封包
+            while self.packet_store and (datetime.now() - self.packet_store[0][2]).total_seconds() > 0.01:
                 pkt_hash, msg, timestamp = self.packet_store.pop(0)
                 datapath = msg.datapath
                 parser = datapath.ofproto_parser
@@ -219,7 +223,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 )
 
                 datapath.send_msg(out)
-
             hub.sleep(0.05)
     def update_ip_connection_time(self, service_name, client_ip):
         """Update the timestamp for a client IP connection"""
@@ -864,51 +867,67 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         )
         datapath.send_msg(mod)
 
+
     def handle_service_packet(self, pkt, datapath, in_port, msg, dst_port):
-        """處理發送到服務的封包"""
+        """處理發送到服務的封包（支援 TCP 和 UDP）"""
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
+        udp_pkt = pkt.get_protocol(udp.udp)
 
-        if not ipv4_pkt or not tcp_pkt:
+        # 確認是 TCP 或 UDP 封包
+        if not ipv4_pkt or (not tcp_pkt and not udp_pkt):
             self.logger.error("Invalid packet format for service handling")
             return
 
+        # 判斷協議類型
+        is_tcp = tcp_pkt is not None
+        is_udp = udp_pkt is not None
+        protocol_name = "TCP" if is_tcp else "UDP"
+
+        # 獲取源端口
+        src_port = tcp_pkt.src_port if is_tcp else udp_pkt.src_port
+
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
-        containers, services = self.get_available_container(ipv4_pkt.src, dst_port)
+
         # 獲取適合的容器
+        containers, services = self.get_available_container(ipv4_pkt.src, dst_port)
+
         for container_name, service_config in zip(containers, services):
             if not container_name or not service_config:
-                self.logger.error(f"No container available for port {dst_port}")
-                self.alert_packet(pkt)  # 保存無法處理的封包
+                self.logger.error(f"No container available for port {dst_port} ({protocol_name})")
+                self.alert_packet(pkt)
                 return
 
             # 獲取容器IP
             target_ip = getip.getcontainer_ip(container_name)
             if not target_ip:
                 self.logger.error(f"Could not get IP for container {container_name}")
-                self.alert_packet(pkt)  # 保存無法處理的封包
+                self.alert_packet(pkt)
                 return
 
             # 設置目標端口
             target_port = service_config.get('target_port', dst_port)
             current_time = datetime.now()
-            # 建立連接映射
-            entry = self.connection_map.get((ipv4_pkt.src, tcp_pkt.src_port))
-            if entry and entry[0] == (ipv4_pkt.dst, tcp_pkt.dst_port):
+
+            # 建立連接映射（區分 TCP 和 UDP）
+            connection_key = (ipv4_pkt.src, src_port, protocol_name)
+            entry = self.connection_map.get(connection_key)
+
+            if entry and entry[0] == (ipv4_pkt.dst, dst_port):
                 entry[1] = current_time
             else:
-                self.connection_map[(ipv4_pkt.src, tcp_pkt.src_port)] = [(ipv4_pkt.dst, tcp_pkt.dst_port),current_time]
+                self.connection_map[connection_key] = [(ipv4_pkt.dst, dst_port), current_time]
 
-            #self.logger.info(f"Traffic on port {dst_port}: {ipv4_pkt.src}:{tcp_pkt.src_port} -> "
-                             #f"{target_ip}:{target_port} (Container: {container_name})")
+            # 設置流表動作（根據協議類型）
+            actions = [parser.OFPActionSetField(ipv4_dst=target_ip)]
 
-            # 設置流表動作
-            actions = [
-                parser.OFPActionSetField(ipv4_dst=target_ip),
-                parser.OFPActionSetField(tcp_dst=target_port),
-                parser.OFPActionOutput(ofproto.OFPP_NORMAL)
-            ]
+            if is_tcp:
+                actions.append(parser.OFPActionSetField(tcp_dst=target_port))
+            elif is_udp:
+                actions.append(parser.OFPActionSetField(udp_dst=target_port))
+
+            actions.append(parser.OFPActionOutput(ofproto.OFPP_NORMAL))
 
             # 發送封包
             out = parser.OFPPacketOut(
@@ -918,36 +937,48 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 actions=actions,
                 data=msg.data if hasattr(msg, 'data') else None
             )
-
             datapath.send_msg(out)
 
+            #self.logger.info(f"{protocol_name} Traffic on port {dst_port}: {ipv4_pkt.src}:{src_port} -> "
+                             #f"{target_ip}:{target_port} (Container: {container_name})")
+
     def return_packet(self, pkt, datapath, in_port, msg):
-        """處理從容器返回的封包"""
+        """處理從容器返回的封包（支援 TCP 和 UDP）"""
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
+        udp_pkt = pkt.get_protocol(udp.udp)
 
-        if not ipv4_pkt or not tcp_pkt:
+        # 確認是 TCP 或 UDP 封包
+        if not ipv4_pkt or (not tcp_pkt and not udp_pkt):
             return
+
+        # 判斷協議類型
+        is_tcp = tcp_pkt is not None
+        is_udp = udp_pkt is not None
+        protocol_name = "TCP" if is_tcp else "UDP"
+
+        # 獲取目標端口（用於查找原始連接）
+        dst_port = tcp_pkt.dst_port if is_tcp else udp_pkt.dst_port
 
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
 
-        # 獲取原始連接信息
-        original_src = self.connection_map.get((ipv4_pkt.dst, tcp_pkt.dst_port))
-
-        #self.logger.info(f"Incoming redirected traffic: {ipv4_pkt.src}:{tcp_pkt.src_port} -> {ipv4_pkt.dst}:{tcp_pkt.dst_port}")
+        # 獲取原始連接信息（使用包含協議的 key）
+        connection_key = (ipv4_pkt.dst, dst_port, protocol_name)
+        original_src = self.connection_map.get(connection_key)
 
         if original_src:
             original_src_ip, original_src_port = original_src[0]
 
-            #self.logger.info(f"Spoofing back to: {original_src_ip}:{original_src_port}")
+            # 設置流表動作（根據協議類型）
+            actions = [parser.OFPActionSetField(ipv4_src=original_src_ip)]
 
-            # 設置流表動作
-            actions = [
-                parser.OFPActionSetField(ipv4_src=original_src_ip),
-                parser.OFPActionSetField(tcp_src=original_src_port),
-                parser.OFPActionOutput(ofproto.OFPP_NORMAL)
-            ]
+            if is_tcp:
+                actions.append(parser.OFPActionSetField(tcp_src=original_src_port))
+            elif is_udp:
+                actions.append(parser.OFPActionSetField(udp_src=original_src_port))
+
+            actions.append(parser.OFPActionOutput(ofproto.OFPP_NORMAL))
 
             # 發送封包
             out = parser.OFPPacketOut(
@@ -957,27 +988,17 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 actions=actions,
                 data=msg.data
             )
-
             datapath.send_msg(out)
 
-            # 檢查是否是FIN或RST封包，釋放容器連接
-            if tcp_pkt.bits & 0x01 or tcp_pkt.bits & 0x04:  # FIN or RST
-                for service_name in self.container_status:
-                    for container_name, status in self.container_status[service_name].items():
-                        if status["ip"] == ipv4_pkt.dst:
-                            self.release_container(service_name, container_name, ipv4_pkt.dst)
-                            break
-    def is_managed_traffic(self, msg):
-        """檢查流量是否需要被OVS管理"""
-        # 根據 in_port 判斷，通常 ens33 對應 port 1
-        # ens34 如果沒有加入 OVS 就不會有 in_port
-        try:
-            in_port = msg.match['in_port']
-            # 只處理來自 OVS 管理端口的流量
-            return in_port is not None
-        except:
+            # 處理連接釋放
+            if is_tcp:
+                if tcp_pkt.bits & 0x01 or tcp_pkt.bits & 0x04:  # FIN or RST
+                    for service_name in self.container_status:
+                        for container_name, status in self.container_status[service_name].items():
+                            if status["ip"] == ipv4_pkt.dst:
+                                self.release_container(service_name, container_name, ipv4_pkt.dst)
+                                break
 
-            return False
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         """處理封包輸入事件"""
@@ -985,41 +1006,81 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         datapath = msg.datapath
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
+        # 1. 檢查 in_port
+        try:
+            in_port = msg.match['in_port']
+        except KeyError:
+            self.logger.warning("No in_port in match, dropped.")
+            return
 
-        if not self.is_managed_traffic(msg):
+        # 2. 檢查 msg.data 是否存在
+        if msg.data is None:
+            self.logger.warning("msg.data is None, dropped.")
             return
+
+        # 3. 檢查數據長度（OpenFlow header 至少需要 8 bytes）
         if len(msg.data) < 8:
-            self.logger.warning("Received too short data for OpenFlow header, dropped.")
+            self.logger.warning(f"Received too short data (len={len(msg.data)}), dropped.")
             return
-        in_port = msg.match['in_port']
+
+        # 4. 檢查是否是有效的以太網幀（至少 14 bytes）
+        if len(msg.data) < 14:
+            self.logger.warning(f"Data too short for Ethernet frame (len={len(msg.data)}), dropped.")
+            return
+
+        # 5. 安全地解析封包
+        try:
+            pkt = packet.Packet(msg.data)
+        except Exception as e:
+            self.logger.error(f"Failed to parse packet: {e}")
+            return
+
+        # 6. 檢查是否包含以太網頭部
+        eth_pkt = pkt.get_protocol(ethernet.ethernet)
+        if not eth_pkt:
+            self.logger.warning("No Ethernet header found, dropped.")
+            return
+
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
         # 獲取封包的IP和TCP層
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
         tcp_pkt = pkt.get_protocol(tcp.tcp)
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt and ipv4_pkt:
+            # 處理發送到honeypot服務的流量
+            if udp_pkt.dst_port in self.udp_monitor_port and ipv4_pkt.dst == self.localIP:
+                self.handle_service_packet(pkt, datapath, in_port, msg, udp_pkt.dst_port)
+                return
+
+            # 處理從容器返回的流量
+            if udp_pkt.src_port in self.udp_return_port:
+                self.return_packet(pkt, datapath, in_port, msg)
+                return
+
         # 處理SSH流量和容器返回流量
         if tcp_pkt and ipv4_pkt:
-
             if ipv4_pkt and self.snort.getsnortip() and self.allowed_snort_ip is None:
                 self.allowed_snort_ip = self.snort.getsnortip()
             # 處理發送到honeypot服務的流量
-            if tcp_pkt.dst_port in self.monitor_port and ipv4_pkt.dst == self.localIP:
-
+            if tcp_pkt.dst_port in self.tcp_monitor_port and ipv4_pkt.dst == self.localIP:
                 self.handle_service_packet(pkt, datapath, in_port, msg, tcp_pkt.dst_port)
                 return
 
             # 處理從容器返回的流量
-            if tcp_pkt.src_port in self.return_port:  # 容器SSH端口
+            if tcp_pkt.src_port in self.tcp_return_port:
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
 
             if tcp_pkt.dst_port == self.snort_port  and (self.allowed_snort_ip != ipv4_pkt.src or self.allowed_snort_ip != ipv4_pkt.dst):
                 self.logger.warning(f"reject from {ipv4_pkt.src} snort or packets received from port {tcp_pkt.dst_port}")
+                self.alert_packet(pkt)
                 return
 
             if tcp_pkt.dst_port == self.controller_port and (self.controller_ip != ipv4_pkt.src or self.controller_ip != ipv4_pkt.dst):
                 self.logger.warning(f"reject from {ipv4_pkt.src} controller or packets received from port {tcp_pkt.dst_port}")
+                self.alert_packet(pkt)
                 return
 
         # 處理與Snort相關的流量
