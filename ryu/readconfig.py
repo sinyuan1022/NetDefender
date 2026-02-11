@@ -36,8 +36,7 @@ def config():
                     'multi': container.get('multi', 'no'),
                     'max': int(container.get('max', 10)),
                     'max_containers': int(container.get('max_containers', 10)),
-                    'send_response': container.get('send_response', 'no'),
-                    'all_port_mappings': port_mappings  # 保存所有端口映射
+                    'send_response': container.get('send_response', 'no')
                 }
 
                 host_port = pm['host']

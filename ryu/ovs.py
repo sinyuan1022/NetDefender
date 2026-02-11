@@ -241,10 +241,13 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             del self.connection_map[key]
             #self.logger.info(f"Connection {key} expired and removed")
 
-    def get_connections_by_src(self,src_ip):
+    def get_connections_by_src(self,src_ip,service_name):
         matches = []
+        ports=[port
+        for port, services in self.docker_config.items()
+        if any(s["name"] == service_name for s in services)]
         for (ip, src_port, proto), (dst_info, ts) in self.connection_map.items():
-            if ip == src_ip:
+            if ip == src_ip and dst_info[1] in ports:
                 dst_ip, dst_port = dst_info
                 matches.append({
                     "src_port": src_port,
@@ -273,7 +276,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     "active_ips": len(container_ips),
                     "ips":[{
                             "ip": ip,
-                            "ports": self.get_connections_by_src(ip) # 每個 IP 都帶這些 port/proto
+                            "ports": self.get_connections_by_src(ip,service_name) # 每個 IP 都帶這些 port/proto
                         } for ip in container_ips],
                     "is_primary": container_info.get("is_primary", False),
                     "last_used": container_info.get("last_used", None).isoformat() if container_info.get(
