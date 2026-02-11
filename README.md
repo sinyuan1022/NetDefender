@@ -166,6 +166,15 @@ Each object in the `ports` array must contain the following fields:
 ---
 
 ## 🚀 Installation Guide
+### Prerequisites for VMware Workstation Pro
+
+1. **Run as root user**
+2. **Enable promiscuous mode** on the virtual network interface:
+   ```bash
+   chmod a+rw /dev/vmnet0
+   ```
+
+This is required for NetDefender to capture network traffic in promiscuous mode.
 
 ### 1. Ryu Server Installation
 
