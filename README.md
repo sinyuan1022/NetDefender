@@ -176,6 +176,8 @@ Each object in the `ports` array must contain the following fields:
 
 This is required for NetDefender to capture network traffic in promiscuous mode.
 
+Please refer to the following URL:[Promiscuous Mode for Linux Virtual Adapters](https://techdocs.broadcom.com/us/en/vmware-cis/desktop-hypervisors/workstation-pro/17-0/using-vmware-workstation-pro/configuring-network-connections/using-virtual-network-adapters-in-promiscuous-mode-on-linux-hosts.html)
+
 ### 1. Ryu Server Installation
 
 Execute the following commands to install the Ryu controller:
