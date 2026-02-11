@@ -299,15 +299,10 @@ bash ./singel.sh
 
 ### Security Research
 Create controlled environments for studying attack patterns, malware behavior, and exploitation techniques across multiple protocols.
-
 ### Threat Intelligence
 Collect and analyze malicious traffic data from SSH brute-force attempts, SMB exploits, SQL injection attacks, and IoT botnet activities.
-
 ### Network Defense
 Implement proactive defense mechanisms by redirecting attackers to honeypots while protecting production systems.
-
-### Training & Education
-Provide hands-on cybersecurity learning environments where students can observe real-world attack techniques in a safe, isolated setting.
 
 ---
 
