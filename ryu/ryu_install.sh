@@ -284,6 +284,7 @@ chmod 600 /etc/netplan/*yaml
 print_status "Applying netplan configuration..."
 systemctl restart systemd-networkd
 netplan apply
+ovs-vsctl set bridge br0 protocols=OpenFlow13
 
 # Restart dnsmasq
 print_status "Restarting dnsmasq service..."
