@@ -114,10 +114,10 @@ NetDefender uses a JSON-based configuration file to define honeypot containers. 
 | `name` | String | Yes | Unique identifier for the container instance |
 | `ports` | Array | Yes | Array of port mapping objects defining network access |
 | `command` | String | No | Additional Docker command-line arguments (Delete this line if it is not needed) |
-| `multi` | String | Yes | Enable multiple container instances (`yes`/`no`) (Default: no)|
-| `max` | Integer | Yes | Maximum number of concurrent connections per container (Default: 10) |
-| `max_containers` | Integer | Yes | Maximum total number of container instances allowed (Primary is not included) (Default: 10)|
-| `send_response` | String | Yes | Whether the honeypot should send response packets (`yes`/`no`) (Default: no)|
+| `multi` | String | No | Enable multiple container instances (`yes`/`no`) (Default: no)|
+| `max` | Integer | No | Maximum number of concurrent connections per container (Default: 10) |
+| `max_containers` | Integer | No | Maximum total number of container instances allowed (Primary is not included) (Default: 10)|
+| `send_response` | String | No | Whether the honeypot should send response packets (`yes`/`no`) (Default: no)|
 
 ### Port Mapping Parameters
 
