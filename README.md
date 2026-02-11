@@ -1,44 +1,40 @@
 # NetDefender
 
-**NetDefender** is a comprehensive network defense and traffic redirection platform that seamlessly integrates **Software-Defined Networking (SDN)** and **Intrusion Detection Systems (IDS)**. Built on the OSKen controller, it leverages Open vSwitch for intelligent packet forwarding and policy enforcement while connecting with Snort for real-time intrusion detection. When traffic matches specific services or triggers security alerts, NetDefender automatically redirects the traffic to corresponding containerized services such as honeypots, providing an observable and controllable experimental defense environment.
+## 📋 Overview
 
----
+**NetDefender** is a comprehensive network defense and traffic redirection platform that seamlessly integrates **Software-Defined Networking (SDN)** and **Intrusion Detection Systems (IDS)**. 
 
-## 🌟 Key Features
+### Key Features
 
-- **SDN Integration**: Utilizes OSKen controller for centralized network management
-- **IDS Integration**: Connects with Snort for real-time threat detection
-- **Traffic Redirection**: Automatically redirects suspicious traffic to honeypots
-- **Container Management**: Supports basic lifecycle management for containerized services
-- **Extensible Policies**: Flexible policy configuration for various defense scenarios
-- **Dynamic Scaling**: Supports multiple concurrent container instances
+- **Core Controller**: Built on the OSKen controller framework
+- **Packet Forwarding**: Utilizes Open vSwitch (OVS) for intelligent packet forwarding and policy enforcement
+- **Intrusion Detection**: Integrates with Snort IDS for real-time threat detection
+- **Dynamic Traffic Redirection**: Automatically redirects suspicious traffic to containerized honeypots
+- **Container Orchestration**: Supports basic container lifecycle management for honeypot services
+- **Extensible Policies**: Flexible policy framework for customizable defense strategies
+- **Observable Environment**: Provides comprehensive visibility into network traffic and security events
 
 ---
 
 ## 🖥️ System Requirements
 
 ### Ryu Server
-- **Operating System**: Ubuntu 22.04 LTS
+- **Operating System**: Ubuntu 22.04
 - **Python Version**: Python 3.9
 
 ### Snort Server
-- **Operating System**: Ubuntu 22.04 LTS
+- **Operating System**: Ubuntu 22.04
 - **Python Version**: Python 3.9+
-
-### Prerequisites
-- Root or sudo access
-- Active internet connection for installation
-- Git installed on the system
 
 ---
 
-## 🔔 Important Notes
+## ⚠️ Important Notes
 
-> **⚠️ Installation Order**: The Ryu server **must** be configured and completed before setting up the Snort server.
+> **Installation Order**: The Ryu server must be installed and configured **before** the Snort server.
 
-> **🌐 Network Connectivity**: Ensure both servers have internet access before beginning the installation process.
+> **Internet Connection**: Ensure both servers have active internet connectivity before beginning the installation process.
 
-> **💬 Comment Syntax**: Lines beginning with `#` are comments for documentation purposes.
+> **Comment Syntax**: Lines beginning with `#` are comments in configuration files.
 
 ---
 
@@ -46,64 +42,140 @@
 
 The following diagram illustrates the NetDefender network topology:
 
-![Network Architecture](https://github.com/user-attachments/assets/3c2be482-1a8f-49ce-82ce-e933007d856f)
-
+<img width="1019" height="637" alt="NetDefender Network Architecture" src="https://github.com/user-attachments/assets/3c2be482-1a8f-49ce-82ce-e933007d856f" />
 
 ---
 
-## ⚙️ Honeypot Configuration
+## 🍯 Honeypot Configuration
 
-NetDefender uses a JSON-based configuration file to define honeypot containers. Below is the configuration schema with detailed parameter descriptions:
+NetDefender uses a JSON-based configuration file to define honeypot containers. The configuration supports multiple honeypot types with flexible port mapping.
+
+### Complete Configuration Example
 
 ```json
 {
   "containers": [
     {
-      "port": 22,
       "image_name": "cowrie/cowrie",
       "name": "ssh",
-      "target_port": 2222,
+      "ports": [
+        {
+          "host_port": 22,
+          "container_port": 2222,
+          "protocol": "tcp"
+        }
+      ],
       "command": "",
-      "multi": "yes",
+      "multi": "yes", 
       "max": 10,
       "max_containers": 10,
       "send_response": "yes"
     },
     {
-      // Additional honeypot configurations
+      "image_name": "dinotools/dionaea",
+      "name": "dionaea",
+      "ports": [
+        {"host_port": 21, "container_port": 21, "protocol": "tcp"},
+        {"host_port": 42, "container_port": 42, "protocol": "tcp"},
+        {"host_port": 69, "container_port": 69, "protocol": "udp"},
+        {"host_port": 80, "container_port": 80, "protocol": "tcp"},
+        {"host_port": 135, "container_port": 135, "protocol": "tcp"},
+        {"host_port": 443, "container_port": 443, "protocol": "tcp"},
+        {"host_port": 445, "container_port": 445, "protocol": "tcp"},
+        {"host_port": 1433, "container_port": 1433, "protocol": "tcp"},
+        {"host_port": 1723, "container_port": 1723, "protocol": "tcp"},
+        {"host_port": 1883, "container_port": 1883, "protocol": "tcp"},
+        {"host_port": 1900, "container_port": 1900, "protocol": "udp"},
+        {"host_port": 3306, "container_port": 3306, "protocol": "tcp"},
+        {"host_port": 5060, "container_port": 5060, "protocol": "tcp"},
+        {"host_port": 5060, "container_port": 5060, "protocol": "udp"},
+        {"host_port": 5061, "container_port": 5061, "protocol": "tcp"},
+        {"host_port": 11211, "container_port": 11211, "protocol": "tcp"}
+      ],
+      "command": "",
+      "multi": "yes",
+      "max": 10,
+      "max_containers": 10,
+      "send_response": "yes"
     }
   ]
 }
 ```
 
-### Configuration Parameters
+---
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| **port** | Integer | The port on which the honeypot listens for incoming traffic |
-| **image_name** | String | Docker image name for the honeypot container (e.g., `cowrie/cowrie`) |
-| **name** | String | Unique identifier for the container (can be any valid string) |
-| **target_port** | Integer | The internal port that the container exposes |
-| **command** | String | Additional Docker command arguments (optional) |
-| **multi** | String | Whether to spawn multiple container instances (`"yes"` or `"no"`) |
-| **max** | Integer | Maximum number of concurrent connections allowed |
-| **max_containers** | Integer | Maximum number of container instances that can be spawned (excluding the primary container) |
-| **send_response** | String | Whether to send response packets back to the source (`"yes"` or `"no"`) |
+## 📖 Configuration Parameters
+
+### Container-Level Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image_name` | String | Yes | Docker image name for the honeypot container |
+| `name` | String | Yes | Unique identifier for the container instance |
+| `ports` | Array | Yes | Array of port mapping objects defining network access |
+| `command` | String | No | Additional Docker command-line arguments (Delete this line if it is not needed) |
+| `multi` | String | Yes | Enable multiple container instances (`yes`/`no`) (Default: no)|
+| `max` | Integer | Yes | Maximum number of concurrent connections per container (Default: 10) |
+| `max_containers` | Integer | Yes | Maximum total number of container instances allowed (Primary is not included) (Default: 10)|
+| `send_response` | String | Yes | Whether the honeypot should send response packets (`yes`/`no`) (Default: no)|
+
+### Port Mapping Parameters
+
+Each object in the `ports` array must contain the following fields:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `host_port` | Integer | Yes | The external network port where incoming packets are received |
+| `container_port` | Integer | Yes | The internal container port for traffic redirection |
+| `protocol` | String | Yes | Network protocol (`tcp` or `udp`) |
 
 ---
 
-## 📦 Installation Guide
+## 🎯 Honeypot Types
 
-### Option 1: 
-### Ryu Server Setup
+### 1. SSH Honeypot (Cowrie)
 
-Execute the following commands to install and configure the Ryu server:
+**Purpose**: Emulates an SSH/Telnet service to capture brute-force attacks and shell interactions.
+
+- **Image**: `cowrie/cowrie`
+- **Monitored Port**: 22 (SSH)
+- **Internal Port**: 2222
+- **Use Case**: Capturing SSH login attempts, commands, and file downloads
+
+### 2. Multi-Service Honeypot (Dionaea)
+
+**Purpose**: A comprehensive honeypot that emulates multiple vulnerable services simultaneously.
+
+- **Image**: `dinotools/dionaea`
+- **Monitored Services**:
+  - **FTP** (21): File Transfer Protocol
+  - **WINS** (42): Windows Internet Name Service
+  - **TFTP** (69, UDP): Trivial File Transfer Protocol
+  - **HTTP** (80): Web traffic
+  - **RPC** (135): Remote Procedure Call
+  - **HTTPS** (443): Secure web traffic
+  - **SMB** (445): Server Message Block
+  - **MSSQL** (1433): Microsoft SQL Server
+  - **PPTP** (1723): Point-to-Point Tunneling Protocol
+  - **MQTT** (1883): Message Queuing Telemetry Transport
+  - **UPnP** (1900, UDP): Universal Plug and Play
+  - **MySQL** (3306): MySQL Database
+  - **SIP** (5060, TCP/UDP & 5061): Session Initiation Protocol
+  - **Memcached** (11211): Distributed memory caching system
+
+---
+
+## 🚀 Installation Guide
+
+### 1. Ryu Server Installation
+
+Execute the following commands to install the Ryu controller:
 
 ```bash
 # Switch to root user
 sudo -s
 
-# Install Git (if not already installed)
+# Install Git
 apt install git -y
 
 # Clone the NetDefender repository
@@ -118,15 +190,17 @@ bash ./ryu_install.sh
 
 ---
 
-### Snort Server Setup
+### 2. Snort Server Installation
 
-After completing the Ryu server installation, proceed with the Snort server setup:
+**Prerequisites**: Complete the Ryu server installation first.
+
+Execute the following commands to install the Snort IDS:
 
 ```bash
 # Switch to root user
 sudo -s
 
-# Install Git (if not already installed)
+# Install Git
 apt install git -y
 
 # Clone the NetDefender repository
@@ -141,15 +215,15 @@ bash ./snort_install.sh
 
 ---
 
-### Option 2: Single Server Deployment (Experimental)
+### 3. Single Server Deployment (Optional)
 
-> **⚠️ Note**: This option combines both Ryu and Snort servers on a single machine. This deployment mode is currently **not enabled** and should be used for testing purposes only.
+> **Note**: This deployment mode is **currently not enabled** by default. Use this option only if you want to combine both Ryu and Snort on a single server.
 
 ```bash
 # Switch to root user
 sudo -s
 
-# Install Git (if not already installed)
+# Install Git
 apt install git -y
 
 # Clone the NetDefender repository
@@ -164,25 +238,88 @@ bash ./singel.sh
 
 ---
 
-## 🚀 Getting Started
+## 🔧 Configuration Best Practices
 
-1. **Prepare Your Environment**: Ensure both servers meet the system requirements listed above
-2. **Configure Honeypots**: Edit the JSON configuration file to define your honeypot services
-3. **Install Ryu Server**: Follow the Ryu server installation steps
-4. **Install Snort Server**: Complete the Snort server setup on a separate machine (or the same machine for testing)
-5. **Start Services**: Launch both Ryu and Snort services to begin monitoring and defense operations
-6. **Monitor Traffic**: Observe network traffic redirection and honeypot interactions
+### Port Mapping Strategy
+
+**Single-Port Honeypots**: Use when targeting specific services like SSH or Telnet.
+
+```json
+{
+  "image_name": "cowrie/cowrie",
+  "name": "ssh",
+  "ports": [
+    {"host_port": 22, "container_port": 2222, "protocol": "tcp"}
+  ]
+}
+```
+
+**Multi-Port Honeypots**: Use when simulating comprehensive network services or vulnerable servers.
+
+```json
+{
+  "image_name": "dinotools/dionaea",
+  "name": "dionaea",
+  "ports": [
+    {"host_port": 80, "container_port": 80, "protocol": "tcp"},
+    {"host_port": 443, "container_port": 443, "protocol": "tcp"}
+  ]
+}
+```
+
+### Scaling Configuration
+
+- **`multi: "yes"`**: Enables dynamic container spawning for high-traffic scenarios
+- **`max: 10`**: Limits concurrent connections per container to prevent resource exhaustion
+- **`max_containers: 10`**: Sets an upper bound on total container instances
+
+### Response Behavior
+
+- **`send_response: "yes"`**: Honeypot actively responds to attackers (more realistic)
+- **`send_response: "no"`**: Silent monitoring mode (useful for specific detection scenarios)
 
 ---
 
-## 📚 Additional Resources
+## 📚 How It Works
 
-- **Repository**: [github.com/sinyuan1022/NetDefender](https://github.com/sinyuan1022/NetDefender)
-- **OSKen Controller**: Software-defined networking controller framework
+### Traffic Flow
+
+1. **Traffic Monitoring**: Open vSwitch forwards network traffic to the Ryu controller
+2. **Threat Detection**: Snort IDS analyzes traffic patterns and generates alerts
+3. **Policy Evaluation**: The controller evaluates traffic against configured policies
+4. **Port Matching**: Incoming traffic is matched against configured `host_port` values
+5. **Dynamic Redirection**: Suspicious traffic is redirected to appropriate honeypot containers
+6. **Container Management**: The system automatically spawns and manages honeypot instances based on load
+7. **Response Generation**: Honeypots interact with attackers while logging all activities
+8. **Data Collection**: All interactions are captured for analysis and threat intelligence
+
+---
+
+## 🎓 Use Cases
+
+### Security Research
+Create controlled environments for studying attack patterns, malware behavior, and exploitation techniques across multiple protocols.
+
+### Threat Intelligence
+Collect and analyze malicious traffic data from SSH brute-force attempts, SMB exploits, SQL injection attacks, and IoT botnet activities.
+
+### Network Defense
+Implement proactive defense mechanisms by redirecting attackers to honeypots while protecting production systems.
+
+### Training & Education
+Provide hands-on cybersecurity learning environments where students can observe real-world attack techniques in a safe, isolated setting.
+
+---
+
+## 🔗 Resources
+
+- **Repository**: [https://github.com/sinyuan1022/NetDefender](https://github.com/sinyuan1022/NetDefender)
+- **OSKen/Ryu Documentation**: Component-based SDN controller framework
 - **Open vSwitch**: Production-quality multilayer virtual switch
-- **Snort**: Open-source intrusion detection and prevention system
-- **Cowrie**: SSH/Telnet honeypot designed to log brute force attacks
+- **Snort**: Open-source network intrusion detection and prevention system
+- **Cowrie**: SSH/Telnet honeypot designed to log brute-force attacks
+- **Dionaea**: Low-interaction honeypot that captures malware and exploits
 
 ---
 
-*This documentation provides a comprehensive guide to deploying NetDefender for network defense research and experimentation.*
+*For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/sinyuan1022/NetDefender).*
