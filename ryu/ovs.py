@@ -529,17 +529,15 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             self.logger.error(f"Unknown service port {port}")
             return None, None
         container_names = []
-        service_configs = []
+        service_ports = []
         for service_config in self.docker_config[port]:
             service_name = service_config.get('name', f'service_{port}')
-
             if service_name not in self.container_status:
                 self.logger.error(f"Service {service_name} not initialized")
                 container_names.append(None)
-                service_configs.append(None)
+                service_ports.append(None)
                 continue
             current_time = datetime.now()
-
             # 初始化IP連接時間追踪
             self.ip_connection_times.setdefault(service_name, {})
             self.ip_container_map.setdefault(service_name, {})
@@ -559,7 +557,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     self.container_status[service_name][container_name]["last_used"] = current_time
                     #self.logger.info(f"Using existing container {container_name} for client {client_ip}")
                     container_names.append(container_name)
-                    service_configs.append(self.container_status[service_name][container_name]["config"])
+                    service_ports.append(service_config.get('target_port', port))
                     continue
 
             # 如果這是一個新活躍的IP，則增加活躍IP計數
@@ -614,7 +612,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                         f"Assigned client {client_ip} to primary container {primary_container}, current IP count: {containers_with_ips[primary_container]['count'] + 1}/{container_capacity}"
                     )
                     container_names.append(primary_container)
-                    service_configs.append(self.container_status[service_name][primary_container]["config"])
+                    service_ports.append(service_config.get('target_port', port))
                     continue
             # 如果不支持多實例，則使用主容器
             if not multi_support:
@@ -623,7 +621,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     f"Service {service_name} does not support multiple instances, using primary container for client {client_ip}"
                 )
                 container_names.append(primary_container)
-                service_configs.append(service_config)
+                service_ports.append(service_config.get('target_port', port))
                 continue
 
             # 找到負載最輕的容器，它還沒有達到容量
@@ -643,7 +641,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 new_count = containers_with_ips[container_name]["count"] + 1
                 self.logger.info(f"Client {client_ip} assigned to existing container {container_name}. Current usage: {new_count}/{container_capacity} IPs")
                 container_names.append(container_name)
-                service_configs.append(self.container_status[service_name][container_name]["config"])
+                service_ports.append(service_config.get('target_port', port))
                 continue
 
             # 計算當前非主容器的數量
@@ -681,7 +679,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     }
                     self.ip_container_map[service_name][client_ip] = new_container_name
                     container_names.append(new_container_name)
-                    service_configs.append(service_config)
+                    service_ports.append(service_config.get('target_port', port))
                     continue
 
             # 如果達到最大容器限制，則使用最不繁忙的容器
@@ -701,7 +699,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                     f"Assigned client {client_ip} to the least busy container {least_busy_container}, current IP count: {min_ips + 1}/{container_capacity}"
                 )
                 container_names.append(least_busy_container)
-                service_configs.append(self.container_status[service_name][least_busy_container]["config"])
+                service_ports.append(service_config.get('target_port', port))
                 continue
 
             # 如果沒有其他選擇，則使用主容器
@@ -710,9 +708,10 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             )
             self.ip_container_map[service_name][client_ip] = primary_container
             container_names.append(primary_container)
-            service_configs.append(service_config)
+            service_ports.append(service_config.get('target_port', port))
             continue
-        return container_names, service_configs
+
+        return container_names, service_ports
 
     def update_container_status(self, service_name, container_name, client_ip):
         """更新容器的狀態信息"""
@@ -909,10 +908,9 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         ofproto = datapath.ofproto
 
         # 獲取適合的容器
-        containers, services = self.get_available_container(ipv4_pkt.src, dst_port)
-
-        for container_name, service_config in zip(containers, services):
-            if not container_name or not service_config:
+        containers, ports = self.get_available_container(ipv4_pkt.src, dst_port)
+        for container_name, port in zip(containers, ports):
+            if not container_name or not port:
                 self.logger.error(f"No container available for port {dst_port} ({protocol_name})")
                 self.alert_packet(pkt)
                 return
@@ -923,9 +921,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 self.logger.error(f"Could not get IP for container {container_name}")
                 self.alert_packet(pkt)
                 return
-
             # 設置目標端口
-            target_port = service_config.get('target_port', dst_port)
+            target_port = port
             current_time = datetime.now()
             # 建立連接映射（區分 TCP 和 UDP）
             connection_key = (ipv4_pkt.src, src_port, protocol_name)
@@ -957,7 +954,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             datapath.send_msg(out)
 
             #self.logger.info(f"{protocol_name} Traffic on port {dst_port}: {ipv4_pkt.src}:{src_port} -> "
-                             #f"{target_ip}:{target_port} (Container: {container_name})")
+                            # f"{target_ip}:{target_port} (Container: {container_name})")
 
     def return_packet(self, pkt, datapath, in_port, msg):
         """處理從容器返回的封包（支援 TCP 和 UDP）"""
