@@ -76,7 +76,7 @@ python3.9 get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
-pip install os-ken docker scapy
+pip install os-ken docker scapy tabulate
 
 docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
 
