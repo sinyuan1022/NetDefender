@@ -12,8 +12,6 @@
 - **Dynamic Traffic Redirection**: Automatically redirects suspicious traffic to containerized honeypots
 - **Container Orchestration**: Supports basic container lifecycle management for honeypot services
 - **Extensible Policies**: Flexible policy framework for customizable defense strategies
-- **Observable Environment**: Provides comprehensive visibility into network traffic and security events
-
 ---
 
 ## 🖥️ System Requirements
