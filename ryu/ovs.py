@@ -917,8 +917,11 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
 
             # 獲取容器IP
             target_ip = getip.getcontainer_ip(container_name)
-            if not target_ip:
-                self.logger.error(f"Could not get IP for container {container_name}")
+            _ipv4_pattern = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')
+            if not target_ip or not isinstance(target_ip, str) or not _ipv4_pattern.match(target_ip):
+                self.logger.error(
+                    f"Invalid IP for container {container_name}: {repr(target_ip)}"
+                )
                 self.alert_packet(pkt)
                 return
             # 設置目標端口
