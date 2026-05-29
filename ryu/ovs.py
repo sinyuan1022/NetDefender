@@ -808,12 +808,6 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         output_dir = "./other"
         os.makedirs(output_dir, exist_ok=True)
 
-        # 獲取other容器IP
-        target_ip = getip.getcontainer_ip("other")
-        if not target_ip:
-            self.logger.error("Could not get IP for 'other' container")
-            target_ip = "127.0.0.1"  # 使用默認值
-
         # 創建新的封包
         scapy_pkt = None
 
