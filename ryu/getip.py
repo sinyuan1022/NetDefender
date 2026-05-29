@@ -15,7 +15,7 @@ def getcontainer_ip(container_name):
         if container.status != 'running':
             logger.warning(f"容器 {container_name} 狀態為 {container.status}，非 running，無法取得 IP")
             return None
-
+        network_settings = container.attrs['NetworkSettings']
         networks = network_settings.get('Networks', {})
         for network_name, config in networks.items():
             ip = config.get('IPAddress', '')
