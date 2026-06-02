@@ -62,10 +62,6 @@ apt install -y \
 	python3-pip
 
 
-# Install pip for Python 3.9
-print_status "Installing pip for Python 3.9..."
-python3 get-pip.py
-
 # Install Python packages
 print_status "Installing Python packages..."
 pip install os-ken==3.1.1 docker scapy tabulate --break-system-packages
