@@ -68,7 +68,7 @@ python3 get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
-pip install os-ken==3.1.1 docker scapy tabulate
+pip install os-ken==3.1.1 docker scapy tabulate --break-system-packages
 
 docker plugin install --grant-all-permissions ghcr.io/claymore666/docker-net-dhcp:latest
 
