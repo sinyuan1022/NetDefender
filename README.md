@@ -17,12 +17,11 @@
 ## 🖥️ System Requirements
 
 ### Ryu Server
-- **Operating System**: Ubuntu 22.04
-- **Python Version**: Python 3.9
-- **Docker version**: 20.10.12-0ubuntu4
+- **Operating System**: Ubuntu 22.04+
+- **Python Version**: Python 3.9+
 
 ### Snort Server
-- **Operating System**: Ubuntu 22.04
+- **Operating System**: Ubuntu 22.04+
 - **Python Version**: Python 3.9+
 
 ---

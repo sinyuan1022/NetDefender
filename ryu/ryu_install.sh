@@ -50,49 +50,96 @@ apt install -y \
     vim \
     net-tools \
     iptables-persistent \
+    isc-dhcp-client \
     dhcpcd5 \
     htop \
     ifmetric \
-    software-properties-common \
     screen \
-    dnsmasq
+    dnsmasq \
+	docker.io \
+	isc-dhcp-client \
+	python3 \
+	python3-pip
 
-# Install specific Docker version
-print_status "Installing Docker ..."
-apt install docker.io=20.10.12-0ubuntu4 -y
-
-# Add Python PPA
-print_status "Adding Python PPA repository..."
-add-apt-repository -y ppa:deadsnakes/ppa
-apt update
-
-# Install Python 3.9
-print_status "Installing Python 3.9..."
-apt install -y python3.9 python3.9-distutils
 
 # Install pip for Python 3.9
 print_status "Installing pip for Python 3.9..."
-python3.9 get-pip.py
+python3 get-pip.py
 
 # Install Python packages
 print_status "Installing Python packages..."
-pip install os-ken docker scapy tabulate
+pip install os-ken==3.1.1 docker scapy tabulate
 
-docker plugin install --grant-all-permissions ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64
+docker plugin install --grant-all-permissions ghcr.io/claymore666/docker-net-dhcp:latest
 
 # Run image check
 print_status "Running image check..."
-python3.9 imagecheck.py
+python3 imagecheck.py
 
 # Create virtual ethernet pair
 print_status "Creating virtual ethernet pair..."
-ip link add veth0 type veth peer name veth1
-ip addr add 192.168.100.1/24 dev veth0
-ip link add my-bridge type bridge
-ip link set my-bridge up
-ip link set veth1 master my-bridge
-ip link set veth0 up
-ip link set veth1 up
+if ! ip link show veth0 &>/dev/null && ! ip link show veth1 &>/dev/null; then
+    echo "Creating veth pair: veth0 <-> veth1"
+    ip link add veth0 type veth peer name veth1
+else
+    echo "veth0 or veth1 already exists, skipping creation."
+fi
+# Assign IP to veth0 if not already assigned
+while true; do
+    print_prompt "Enter IP/prefix for veth0 (e.g., 192.168.100.1/24):"
+    read -r VETH0_CIDR
+    # Validate format
+    if [[ ! "$VETH0_CIDR" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
+        print_error "Invalid format. Try again."
+        continue
+    fi
+    # Skip if already assigned
+    if ip addr show veth0 2>/dev/null | grep -q "$VETH0_CIDR"; then
+        print_warning "$VETH0_CIDR already assigned to veth0, skipping."
+        break
+    fi
+    # Apply
+    if ip addr add "$VETH0_CIDR" dev veth0; then
+        print_status "Assigned $VETH0_CIDR to veth0."
+        break
+    else
+        print_error "Failed to assign IP. Try again."
+    fi
+# Create bridge my-bridge if not exists
+if ! ip link show my-bridge &>/dev/null; then
+    echo "Creating bridge: my-bridge"
+    ip link add my-bridge type bridge
+else
+    echo "Bridge my-bridge already exists, skipping creation."
+fi
+# Bring up my-bridge if not already up
+if ! ip link show my-bridge | grep -q "UP"; then
+    echo "Bringing up my-bridge"
+    ip link set my-bridge up
+else
+    echo "my-bridge is already UP, skipping."
+fi
+# Attach veth1 to my-bridge if not already attached
+if ! bridge link show | grep -q "veth1"; then
+    echo "Attaching veth1 to my-bridge"
+    ip link set veth1 master my-bridge
+else
+    echo "veth1 is already attached to a bridge, skipping."
+fi
+# Bring up veth0 if not already up
+if ! ip link show veth0 | grep -q "UP"; then
+    echo "Bringing up veth0"
+    ip link set veth0 up
+else
+    echo "veth0 is already UP, skipping."
+fi
+# Bring up veth1 if not already up
+if ! ip link show veth1 | grep -q "UP"; then
+    echo "Bringing up veth1"
+    ip link set veth1 up
+else
+    echo "veth1 is already UP, skipping."
+fi
 
 # Configure iptables
 print_status "Configuring iptables..."
@@ -115,17 +162,84 @@ sysctl -p
 
 # Configure dnsmasq
 print_status "Configuring dnsmasq..."
-cat > /etc/dnsmasq.conf << EOF
-port=0
-interface=veth0
-no-dhcp-interface=br0
-listen-address=192.168.100.1
-listen-address=127.0.0.1
-dhcp-range=192.168.100.2,192.168.100.254,255.255.255.0,1h
-dhcp-option=3,192.168.100.1
-dhcp-option=28,192.168.100.255
-dhcp-option=6,8.8.8.8,8.8.4.4
+DNSMASQ_PORT=0
+DNSMASQ_INTERFACE=veth0
+DNSMASQ_NO_DHCP_INTERFACE=br0
+DNSMASQ_LOOPBACK=127.0.0.1
+#Interactive DNSMASQ DHCP configuration
+DNSMASQ_CONFIGURED=false
+while [ "$DNSMASQ_CONFIGURED" = false ]; do
+    print_status "Configuring dnsmasq DHCP..."
+    #Listen address
+    print_prompt "Enter the listen address for dnsmasq on veth0 (e.g., 192.168.100.1):"
+    read -r DNSMASQ_LISTEN
+    if [[ ! "$DNSMASQ_LISTEN" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        print_error "Invalid IP address format. Please try again."
+        continue
+    fi
+    #DHCP range
+    print_prompt "Enter the DHCP range start IP (e.g., 192.168.100.2):"
+    read -r DHCP_RANGE_START
+    print_prompt "Enter the DHCP range end IP (e.g., 192.168.100.254):"
+    read -r DHCP_RANGE_END
+    print_prompt "Enter the subnet mask (e.g., 255.255.255.0):"
+    read -r DHCP_SUBNET
+    print_prompt "Enter the DHCP lease time (e.g., 1h, 12h, 24h):"
+    read -r DHCP_LEASE
+    #Gateway (option 3)
+    print_prompt "Enter the default gateway for DHCP clients (e.g., 192.168.100.1):"
+    read -r DHCP_GATEWAY
+    #Broadcast (option 28) — auto-calculate or manual
+    print_prompt "Enter broadcast address (e.g., 192.168.100.255) or press Enter to auto-calculate:"
+    read -r DHCP_BROADCAST
+    if [ -z "$DHCP_BROADCAST" ]; then
+        # Auto-calculate broadcast from listen address /24
+        DHCP_BROADCAST=$(echo "$DNSMASQ_LISTEN" | awk -F. '{print $1"."$2"."$3".255"}')
+        print_status "Auto-calculated broadcast: $DHCP_BROADCAST"
+    fi
+    #DNS servers (option 6)
+    print_prompt "Enter DNS servers (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
+    read -r DHCP_DNS_INPUT
+    DHCP_DNS1=$(echo "$DHCP_DNS_INPUT" | cut -d',' -f1 | tr -d ' ')
+    DHCP_DNS2=$(echo "$DHCP_DNS_INPUT" | cut -d',' -f2 | tr -d ' ')
+    #Preview
+    echo ""
+    print_warning "---- Preview: /etc/dnsmasq.conf ----"
+    cat << EOF
+port=$DNSMASQ_PORT
+interface=$DNSMASQ_INTERFACE
+no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
+listen-address=$DNSMASQ_LISTEN
+listen-address=$DNSMASQ_LOOPBACK
+dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
+dhcp-option=3,$DHCP_GATEWAY
+dhcp-option=28,$DHCP_BROADCAST
+dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
 EOF
+    echo "------------------------------------"
+    echo ""
+    #Confirm
+    print_prompt "Apply this configuration? (y/n):"
+    read -r CONFIRM
+    if [ "$CONFIRM" = "y" ] || [ "$CONFIRM" = "Y" ]; then
+        cat > /etc/dnsmasq.conf << EOF
+port=$DNSMASQ_PORT
+interface=$DNSMASQ_INTERFACE
+no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
+listen-address=$DNSMASQ_LISTEN
+listen-address=$DNSMASQ_LOOPBACK
+dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
+dhcp-option=3,$DHCP_GATEWAY
+dhcp-option=28,$DHCP_BROADCAST
+dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
+EOF
+        print_status "dnsmasq.conf written successfully."
+        DNSMASQ_CONFIGURED=true
+    else
+        print_warning "Configuration cancelled. Starting over..."
+        echo ""
+    fi
+done
 # Configure netplan interactively with loop for re-entry
 print_status "backup netplan..."
 cp /etc/netplan/*.yaml /etc/netplan/01-network-manager-all.yaml.backup
@@ -297,7 +411,7 @@ dhcpcd my-bridge
 
 # Create Docker network
 print_status "Creating Docker network..."
-docker network create -d ghcr.io/devplayer0/docker-net-dhcp:release-linux-amd64 \
+docker network create -d ghcr.io/claymore666/docker-net-dhcp:latest \
     --ipam-driver null \
     -o bridge=my-bridge \
     my-dhcp-net || print_warning "Docker network may already exist"
