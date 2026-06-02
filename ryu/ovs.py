@@ -815,14 +815,14 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
             scapy_pkt = Ether(src=eth.src, dst=eth.dst, type=eth.ethertype)
 
         if ipv4_pkt:
-            ip_layer = IP(src=ipv4_pkt.src, dst=target_ip, proto=ipv4_pkt.proto)
+            ip_layer = IP(src=ipv4_pkt.src, dst=ipv4_pkt.dst, proto=ipv4_pkt.proto)
 
             if scapy_pkt:
                 scapy_pkt = scapy_pkt / ip_layer
             else:
                 scapy_pkt = ip_layer
 
-            self.logger.info(f"Alert packet: {ipv4_pkt.src} -> {target_ip}")
+            self.logger.info(f"Alert packet: {ipv4_pkt.src} -> {ipv4_pkt.dst}")
 
         # 添加適當的協議層
         if tcp_pkt:
