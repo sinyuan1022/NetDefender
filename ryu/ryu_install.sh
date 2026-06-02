@@ -66,7 +66,12 @@ apt install -y \
 print_status "Installing Python packages..."
 pip install os-ken==3.1.1 docker scapy tabulate --break-system-packages
 
-docker plugin install --grant-all-permissions ghcr.io/claymore666/docker-net-dhcp:latest
+PLUGIN="ghcr.io/claymore666/docker-net-dhcp:latest"
+if docker plugin inspect "$PLUGIN" >/dev/null 2>&1; then
+  echo "Docker plugin already exists, skipping: $PLUGIN"
+else
+  docker plugin install "$PLUGIN" --grant-all-permissions
+fi
 
 # Run image check
 print_status "Running image check..."
