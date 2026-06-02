@@ -101,6 +101,7 @@ while true; do
     else
         print_error "Failed to assign IP. Try again."
     fi
+done
 # Create bridge my-bridge if not exists
 if ! ip link show my-bridge &>/dev/null; then
     echo "Creating bridge: my-bridge"
