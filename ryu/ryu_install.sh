@@ -179,8 +179,9 @@ DNSMASQ_CONFIGURED=false
 while [ "$DNSMASQ_CONFIGURED" = false ]; do
     print_status "Configuring dnsmasq DHCP..."
     #Listen address
-    print_prompt "Enter the listen address for dnsmasq on veth0 (e.g., 192.168.100.1):"
-    read -r DNSMASQ_LISTEN
+    #print_prompt "Enter the listen address for dnsmasq on veth0 (e.g., 192.168.100.1):"
+    #read -r DNSMASQ_LISTEN
+	DNSMASQ_LISTEN = $VETH0_CIDR
     if [[ ! "$DNSMASQ_LISTEN" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
         print_error "Invalid IP address format. Please try again."
         continue
