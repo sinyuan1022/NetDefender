@@ -181,11 +181,11 @@ while [ "$DNSMASQ_CONFIGURED" = false ]; do
     #Listen address
     #print_prompt "Enter the listen address for dnsmasq on veth0 (e.g., 192.168.100.1):"
     #read -r DNSMASQ_LISTEN
-	DNSMASQ_LISTEN = $VETH0_CIDR
-    if [[ ! "$DNSMASQ_LISTEN" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        print_error "Invalid IP address format. Please try again."
-        continue
-    fi
+	DNSMASQ_LISTEN="${VETH0_CIDR%/*}"
+    #if [[ ! "$DNSMASQ_LISTEN" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        #print_error "Invalid IP address format. Please try again."
+        #continue
+    #fi
     #DHCP range
     print_prompt "Enter the DHCP range start IP (e.g., 192.168.100.2):"
     read -r DHCP_RANGE_START
@@ -223,7 +223,7 @@ no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
 listen-address=$DNSMASQ_LISTEN
 listen-address=$DNSMASQ_LOOPBACK
 dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
-dhcp-option=3,$(echo "$DNSMASQ_LISTEN" | awk -F. '{print $1"."$2"."$3".$4"}')
+dhcp-option=3,$DNSMASQ_LISTEN
 dhcp-option=28,$DHCP_BROADCAST
 dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
 EOF
@@ -240,7 +240,7 @@ no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
 listen-address=$DNSMASQ_LISTEN
 listen-address=$DNSMASQ_LOOPBACK
 dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
-dhcp-option=3,$(echo "$DNSMASQ_LISTEN" | awk -F. '{print $1"."$2"."$3".$4"}')
+dhcp-option=3,$DNSMASQ_LISTEN
 dhcp-option=28,$DHCP_BROADCAST
 dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
 EOF
