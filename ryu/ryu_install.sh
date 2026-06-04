@@ -93,7 +93,7 @@ else
 fi
 # Assign IP to veth0 if not already assigned
 while true; do
-    print_prompt "Enter IP/prefix for veth0 (e.g., 192.168.100.1/24):"
+    print_prompt "Enter IP/prefix for veth0 and gateway IP for DHCP clients (e.g., 192.168.100.1/24):"
     read -r VETH0_CIDR
     # Validate format
     if [[ ! "$VETH0_CIDR" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$ ]]; then
@@ -192,11 +192,13 @@ while [ "$DNSMASQ_CONFIGURED" = false ]; do
     read -r DHCP_RANGE_END
     print_prompt "Enter the subnet mask (e.g., 255.255.255.0):"
     read -r DHCP_SUBNET
-    print_prompt "Enter the DHCP lease time (e.g., 1h, 12h, 24h):"
-    read -r DHCP_LEASE
+    print_prompt "Enter DHCP lease time (number only or with h, e.g. 1, 12, 24h): "
+	read -r DHCP_LEASE
+	[[ "$DHCP_LEASE" =~ h$ ]] || DHCP_LEASE="${DHCP_LEASE}h"
+	echo "Lease time: $DHCP_LEASE"
     #Gateway (option 3)
-    print_prompt "Enter the default gateway for DHCP clients (e.g., 192.168.100.1):"
-    read -r DHCP_GATEWAY
+    #print_prompt "Enter the default gateway for DHCP clients (e.g., 192.168.100.1):"
+    #read -r DHCP_GATEWAY
     #Broadcast (option 28) — auto-calculate or manual
     print_prompt "Enter broadcast address (e.g., 192.168.100.255) or press Enter to auto-calculate:"
     read -r DHCP_BROADCAST
@@ -220,7 +222,7 @@ no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
 listen-address=$DNSMASQ_LISTEN
 listen-address=$DNSMASQ_LOOPBACK
 dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
-dhcp-option=3,$DHCP_GATEWAY
+dhcp-option=3,$(echo "$DNSMASQ_LISTEN" | awk -F. '{print $1"."$2"."$3".$4"}')
 dhcp-option=28,$DHCP_BROADCAST
 dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
 EOF
@@ -237,7 +239,7 @@ no-dhcp-interface=$DNSMASQ_NO_DHCP_INTERFACE
 listen-address=$DNSMASQ_LISTEN
 listen-address=$DNSMASQ_LOOPBACK
 dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,$DHCP_SUBNET,$DHCP_LEASE
-dhcp-option=3,$DHCP_GATEWAY
+dhcp-option=3,$(echo "$DNSMASQ_LISTEN" | awk -F. '{print $1"."$2"."$3".$4"}')
 dhcp-option=28,$DHCP_BROADCAST
 dhcp-option=6,$DHCP_DNS1,$DHCP_DNS2
 EOF
