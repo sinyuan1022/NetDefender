@@ -70,7 +70,7 @@ if $PIP install --help 2>/dev/null | grep -q -- '--break-system-packages'; then
   BREAK_FLAG="--break-system-packages"
 fi
 
-$PIP install $BREAK_FLAG os-ken==3.1.1 docker scapy tabulateos
+$PIP install $BREAK_FLAG os-ken==3.1.1 docker scapy tabulate
 
 PLUGIN="ghcr.io/claymore666/docker-net-dhcp:latest"
 if docker plugin inspect "$PLUGIN" >/dev/null 2>&1; then
