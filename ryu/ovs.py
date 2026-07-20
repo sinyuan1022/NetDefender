@@ -6,7 +6,7 @@ from os_ken.controller.handler import set_ev_cls
 from os_ken.ofproto import ofproto_v1_3
 from os_ken.lib.packet import icmp
 import snortlib
-from os_ken.lib.packet import packet, ethernet, ipv4, tcp, udp
+from os_ken.lib.packet import packet, ethernet, ipv4, tcp, udp, icmpv6
 from os_ken.lib import hub
 from datetime import datetime
 import hashlib
@@ -25,6 +25,7 @@ import docker
 import math
 import json
 import controller_config
+import struct
 
 class SimpleSwitchSnort(app_manager.OSKenApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -61,6 +62,11 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.final_file = "connect_status.json"
         self.maxpercent = min(max(controller_config.maxpercent, 0.5), 1)
         self.initialize_services()
+        try:
+        if hasattr(icmpv6, "nd_option_mtu") and not hasattr(icmpv6.nd_option_mtu, "_MIN_LEN"):
+            icmpv6.nd_option_mtu._MIN_LEN = struct.calcsize(icmpv6.nd_option_mtu._PACK_STR)
+        except Exception:
+            pass
 
 
     def initialize_services(self):
