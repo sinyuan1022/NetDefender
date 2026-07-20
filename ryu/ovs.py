@@ -63,8 +63,8 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
         self.maxpercent = min(max(controller_config.maxpercent, 0.5), 1)
         self.initialize_services()
         try:
-        if hasattr(icmpv6, "nd_option_mtu") and not hasattr(icmpv6.nd_option_mtu, "_MIN_LEN"):
-            icmpv6.nd_option_mtu._MIN_LEN = struct.calcsize(icmpv6.nd_option_mtu._PACK_STR)
+            if hasattr(icmpv6, "nd_option_mtu") and not hasattr(icmpv6.nd_option_mtu, "_MIN_LEN"):
+                icmpv6.nd_option_mtu._MIN_LEN = struct.calcsize(icmpv6.nd_option_mtu._PACK_STR)
         except Exception:
             pass
 
