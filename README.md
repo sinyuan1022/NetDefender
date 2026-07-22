@@ -335,11 +335,12 @@ Implement proactive defense mechanisms by redirecting attackers to honeypots whi
 ## 🔗 Resources
 
 - **Repository**: [https://github.com/sinyuan1022/NetDefender](https://github.com/sinyuan1022/NetDefender)
-- **OSKen/Ryu Documentation**: Component-based SDN controller framework
-- **Open vSwitch**: Production-quality multilayer virtual switch
-- **Snort**: Open-source network intrusion detection and prevention system
-- **Cowrie**: SSH/Telnet honeypot designed to log brute-force attacks
-- **Dionaea**: Low-interaction honeypot that captures malware and exploits
+- **OSKen/Ryu Documentation**: Component-based SDN controller framework ([OSKen](https://github.com/openstack/os-ken))
+- **Open vSwitch**: Production-quality multilayer virtual switch ([Open vSwitch](https://github.com/openvswitch/ovs))
+- **Docker Plugin**: A Docker network plugin that allocates container IP addresses ([docker-net-dhcp](https://github.com/claymore666/docker-net-dhcp))
+- **Snort**: Open-source network intrusion detection and prevention system ([Snort](https://github.com/snort3/snort3))
+- **Cowrie**: SSH/Telnet honeypot designed to log brute-force attacks ([Cowrie](https://github.com/cowrie/cowrie))
+- **Dionaea**: Low-interaction honeypot that captures malware and exploits ([Dionaea](https://github.com/dinotools/dionaea))
 
 ---
 
