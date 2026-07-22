@@ -432,10 +432,19 @@ docker network create -d ghcr.io/claymore666/docker-net-dhcp:latest \
     my-dhcp-net || print_warning "Docker network may already exist"
 
 # Start Ryu controller in screen session
-print_status "Starting Ryu controller in screen session..."
-screen -dmS osken osken-manager ovs.py
-
-print_status "NetDefender setup completed successfully!"
-print_status "Ryu controller is running in a screen session named 'osken'"
-print_status "To attach to the session, use: screen -r osken"
+read -p "Do you want to start Ryu controller now? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    print_status "Starting Ryu controller..."
+    screen -dmS osken osken-manager ovs.py
+    print_status "NetDefender setup completed successfully!"
+    print_status "Ryu controller is running in a screen session named 'osken'"
+    print_status "To attach to the session, use: screen -r osken"
+else
+    print_status "Setup complete!"
+    print_status "To start Ryu controller later, run:"
+    echo "    cd $(pwd)"
+    echo "    osken-manager ovs.py"
+    echo
+fi
 
