@@ -79,8 +79,9 @@ else
 fi
 
 # Run image check
+cd ./ryu
 print_status "Running image check..."
-python3 ./ryu/imagecheck.py
+python3 imagecheck.py
 
 # Create virtual ethernet pair
 print_status "Creating virtual ethernet pair..."
@@ -455,7 +456,7 @@ fi
 
 # Start Ryu controller in screen session
 print_status "Starting Ryu controller in screen session..."
-screen -dmS osken osken-manager ./ryu/ovs.py
+screen -dmS osken osken-manager ovs.py
 
 print_status "NetDefender setup completed successfully!"
 print_status "Ryu controller is running in a screen session named 'osken'"
