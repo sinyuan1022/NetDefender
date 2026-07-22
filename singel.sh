@@ -432,7 +432,7 @@ docker network create -d ghcr.io/claymore666/docker-net-dhcp:latest \
     -o bridge=my-bridge \
     my-dhcp-net || print_warning "Docker network may already exist"
 
-sed -i "s/socket_config = {'unixsock': False}/socket_config = {'unixsock': True}/" ovs.py
+sed -i "s/socket_config = {'unixsock': False,'port':self.snort_port}/socket_config = {'unixsock': True,'port':self.snort_port}/" ovs.py
 
 
 # Set network interface to promiscuous mode
