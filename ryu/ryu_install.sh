@@ -259,16 +259,52 @@ for file in /etc/netplan/*.yaml; do
     fi
 done
 touch /etc/netplan/01-network-manager-all.yaml
+is_valid_mac() {
+  # Accepts: aa:bb:cc:dd:ee:ff (case-insensitive)
+  [[ "${1:-}" =~ ^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$ ]]
+}
 NETPLAN_CONFIGURED=false
 while [ "$NETPLAN_CONFIGURED" = false ]; do
     print_status "Configuring netplan..."
     print_warning "Available network interfaces:"
-    # Fixed the awk command
+
     ip link show | grep -E '^[0-9]+:' | cut -d: -f2 | tr -d ' ' | grep -v lo
 
     # Get primary interface for bridge
     print_prompt "Enter the primary network interface name for bridge (e.g., ens33, eth0):"
     read -r PRIMARY_INTERFACE
+
+    # Optional match/set-name for PRIMARY
+    print_prompt "Do you want to add 'match' (by MAC) for $PRIMARY_INTERFACE? (y/N):"
+    read -r PRIMARY_USE_MATCH
+
+    PRIMARY_MATCH_MAC=""
+    if [[ "$PRIMARY_USE_MATCH" =~ ^[Yy]$ ]]; then
+        while true; do
+            print_prompt "Enter MAC address for $PRIMARY_INTERFACE (format: aa:bb:cc:dd:ee:ff):"
+            read -r PRIMARY_MATCH_MAC
+            if is_valid_mac "$PRIMARY_MATCH_MAC"; then
+                break
+            else
+                print_warning "Invalid MAC format. Please use aa:bb:cc:dd:ee:ff"
+            fi
+        done
+    fi
+
+    print_prompt "Do you want to add 'set-name' for $PRIMARY_INTERFACE? (y/N):"
+    read -r PRIMARY_USE_SETNAME
+
+    PRIMARY_SETNAME=""
+    if [[ "$PRIMARY_USE_SETNAME" =~ ^[Yy]$ ]]; then
+        print_prompt "Enter set-name value for primary interface (e.g., uplink0):"
+        read -r PRIMARY_SETNAME
+    fi
+
+    # Effective interface name used later (bridge must reference the final name)
+    PRIMARY_EFFECTIVE_NAME="$PRIMARY_INTERFACE"
+    if [[ -n "$PRIMARY_SETNAME" ]]; then
+        PRIMARY_EFFECTIVE_NAME="$PRIMARY_SETNAME"
+    fi
 
     # Get bridge network configuration
     print_prompt "Enter the IP address for br0 bridge (e.g., 192.168.254.137/24):"
@@ -279,11 +315,12 @@ while [ "$NETPLAN_CONFIGURED" = false ]; do
 
     print_prompt "Enter DNS servers for br0 (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
     read -r BR0_DNS
+
     BR0_DNS1=$(echo "$BR0_DNS" | cut -d',' -f1 | tr -d ' ')
     BR0_DNS2=$(echo "$BR0_DNS" | cut -d',' -f2 | tr -d ' ')
 
     # Optional secondary interface configuration
-    print_prompt "Do you want to configure a secondary interface? (y/n):"
+    print_prompt "Do you want to configure a secondary interface? (y/N):"
     read -r CONFIGURE_SECONDARY
 
     # Start building netplan configuration
@@ -293,34 +330,96 @@ network:
   renderer: networkd
   ethernets:
     $PRIMARY_INTERFACE:
+EOF
+
+    # Add match/set-name for primary if requested
+    if [[ -n "$PRIMARY_MATCH_MAC" ]]; then
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
+      match:
+        macaddress: $PRIMARY_MATCH_MAC
+EOF
+    fi
+
+    if [[ -n "$PRIMARY_SETNAME" ]]; then
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
+      set-name: $PRIMARY_SETNAME
+EOF
+    fi
+
+    # Continue primary config
+    cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       dhcp4: no
 EOF
 
     # Add secondary interface if requested
-    if [[ "$CONFIGURE_SECONDARY" == "y" ]] || [[ "$CONFIGURE_SECONDARY" == "Y" ]]; then
+    if [[ "$CONFIGURE_SECONDARY" =~ ^[Yy]$ ]]; then
         print_prompt "Enter the secondary network interface name (e.g., ens34, eth1):"
         read -r SECONDARY_INTERFACE
-        
+
+        # Optional match/set-name for SECONDARY
+        print_prompt "Do you want to add 'match' (by MAC) for $SECONDARY_INTERFACE? (y/N):"
+        read -r SECONDARY_USE_MATCH
+
+        SECONDARY_MATCH_MAC=""
+        if [[ "$SECONDARY_USE_MATCH" =~ ^[Yy]$ ]]; then
+            while true; do
+                print_prompt "Enter MAC address for $SECONDARY_INTERFACE (format: aa:bb:cc:dd:ee:ff):"
+                read -r SECONDARY_MATCH_MAC
+                if is_valid_mac "$SECONDARY_MATCH_MAC"; then
+                    break
+                else
+                    print_warning "Invalid MAC format. Please use aa:bb:cc:dd:ee:ff"
+                fi
+            done
+        fi
+
+        print_prompt "Do you want to add 'set-name' for $SECONDARY_INTERFACE? (y/N):"
+        read -r SECONDARY_USE_SETNAME
+
+        SECONDARY_SETNAME=""
+        if [[ "$SECONDARY_USE_SETNAME" =~ ^[Yy]$ ]]; then
+            print_prompt "Enter set-name value for secondary interface (e.g., lan1):"
+            read -r SECONDARY_SETNAME
+        fi
+
         print_prompt "Enter the IP address for $SECONDARY_INTERFACE (e.g., 192.168.1.104/24):"
         read -r SECONDARY_IP
-        
+
         print_prompt "Enter the default gateway for $SECONDARY_INTERFACE (e.g., 192.168.1.1):"
         read -r SECONDARY_GATEWAY
-        
+
         print_prompt "Enter the metric for $SECONDARY_INTERFACE route (e.g., 100):"
         read -r SECONDARY_METRIC
-        
+
         print_prompt "Enter DNS servers for $SECONDARY_INTERFACE (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
         read -r SECONDARY_DNS
+
         SECONDARY_DNS1=$(echo "$SECONDARY_DNS" | cut -d',' -f1 | tr -d ' ')
         SECONDARY_DNS2=$(echo "$SECONDARY_DNS" | cut -d',' -f2 | tr -d ' ')
-        
+
+        # Write secondary interface block
         cat >> /etc/netplan/01-network-manager-all.yaml << EOF
     $SECONDARY_INTERFACE:
+EOF
+
+        if [[ -n "$SECONDARY_MATCH_MAC" ]]; then
+            cat >> /etc/netplan/01-network-manager-all.yaml << EOF
+      match:
+        macaddress: $SECONDARY_MATCH_MAC
+EOF
+        fi
+
+        if [[ -n "$SECONDARY_SETNAME" ]]; then
+            cat >> /etc/netplan/01-network-manager-all.yaml << EOF
+      set-name: $SECONDARY_SETNAME
+EOF
+        fi
+
+        cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       addresses:
         - $SECONDARY_IP
 EOF
-        
+
         # Add nameservers for secondary interface
         if [[ -n "$SECONDARY_DNS2" ]]; then
             cat >> /etc/netplan/01-network-manager-all.yaml << EOF
@@ -336,7 +435,7 @@ EOF
           - $SECONDARY_DNS1
 EOF
         fi
-        
+
         # Add routes for secondary interface
         cat >> /etc/netplan/01-network-manager-all.yaml << EOF
       routes:
@@ -350,7 +449,7 @@ EOF
     cat >> /etc/netplan/01-network-manager-all.yaml << EOF
   bridges:
     br0:
-      interfaces: [$PRIMARY_INTERFACE]
+      interfaces: [$PRIMARY_EFFECTIVE_NAME]
       addresses:
         - $BR0_IP
 EOF
@@ -397,13 +496,14 @@ EOF
     print_prompt "Does this configuration look correct? (y/n):"
     read -r CONFIRM
 
-    if [[ "$CONFIRM" == "y" ]] || [[ "$CONFIRM" == "Y" ]]; then
+    if [[ "$CONFIRM" == "y" || "$CONFIRM" == "Y" ]]; then
         NETPLAN_CONFIGURED=true
         print_status "Configuration accepted, proceeding..."
     else
         print_warning "Configuration rejected, let's try again..."
         echo ""
     fi
+
 done
 
 # Set proper permissions for netplan config
