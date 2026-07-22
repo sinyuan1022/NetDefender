@@ -278,11 +278,11 @@ while [ "$NETPLAN_CONFIGURED" = false ]; do
     read -r PRIMARY_INTERFACE
 
     # Optional match/set-name for PRIMARY
-    print_prompt "Do you want to add 'match' (by MAC) for $PRIMARY_INTERFACE? (y/n):"
+    print_prompt "Do you want to add 'match' (by MAC) for $PRIMARY_INTERFACE? (y/N):"
     read -r PRIMARY_USE_MATCH
 
     PRIMARY_MATCH_MAC=""
-    if [[ "$PRIMARY_USE_MATCH" == "y" || "$PRIMARY_USE_MATCH" == "Y" ]]; then
+    if [[ "$PRIMARY_USE_MATCH" =~ ^[Yy]$ ]]; then
         while true; do
             print_prompt "Enter MAC address for $PRIMARY_INTERFACE (format: aa:bb:cc:dd:ee:ff):"
             read -r PRIMARY_MATCH_MAC
@@ -294,11 +294,11 @@ while [ "$NETPLAN_CONFIGURED" = false ]; do
         done
     fi
 
-    print_prompt "Do you want to add 'set-name' for $PRIMARY_INTERFACE? (y/n):"
+    print_prompt "Do you want to add 'set-name' for $PRIMARY_INTERFACE? (y/N):"
     read -r PRIMARY_USE_SETNAME
 
     PRIMARY_SETNAME=""
-    if [[ "$PRIMARY_USE_SETNAME" == "y" || "$PRIMARY_USE_SETNAME" == "Y" ]]; then
+    if [[ "$PRIMARY_USE_SETNAME" =~ ^[Yy]$ ]]; then
         print_prompt "Enter set-name value for primary interface (e.g., uplink0):"
         read -r PRIMARY_SETNAME
     fi
@@ -323,7 +323,7 @@ while [ "$NETPLAN_CONFIGURED" = false ]; do
     BR0_DNS2=$(echo "$BR0_DNS" | cut -d',' -f2 | tr -d ' ')
 
     # Optional secondary interface configuration
-    print_prompt "Do you want to configure a secondary interface? (y/n):"
+    print_prompt "Do you want to configure a secondary interface? (y/N):"
     read -r CONFIGURE_SECONDARY
 
     # Start building netplan configuration
@@ -355,16 +355,16 @@ EOF
 EOF
 
     # Add secondary interface if requested
-    if [[ "$CONFIGURE_SECONDARY" == "y" || "$CONFIGURE_SECONDARY" == "Y" ]]; then
+    if [[ "$CONFIGURE_SECONDARY" =~ ^[Yy]$ ]]; then
         print_prompt "Enter the secondary network interface name (e.g., ens34, eth1):"
         read -r SECONDARY_INTERFACE
 
         # Optional match/set-name for SECONDARY
-        print_prompt "Do you want to add 'match' (by MAC) for $SECONDARY_INTERFACE? (y/n):"
+        print_prompt "Do you want to add 'match' (by MAC) for $SECONDARY_INTERFACE? (y/N):"
         read -r SECONDARY_USE_MATCH
 
         SECONDARY_MATCH_MAC=""
-        if [[ "$SECONDARY_USE_MATCH" == "y" || "$SECONDARY_USE_MATCH" == "Y" ]]; then
+        if [[ "$SECONDARY_USE_MATCH" =~ ^[Yy]$ ]]; then
             while true; do
                 print_prompt "Enter MAC address for $SECONDARY_INTERFACE (format: aa:bb:cc:dd:ee:ff):"
                 read -r SECONDARY_MATCH_MAC
@@ -376,11 +376,11 @@ EOF
             done
         fi
 
-        print_prompt "Do you want to add 'set-name' for $SECONDARY_INTERFACE? (y/n):"
+        print_prompt "Do you want to add 'set-name' for $SECONDARY_INTERFACE? (y/N):"
         read -r SECONDARY_USE_SETNAME
 
         SECONDARY_SETNAME=""
-        if [[ "$SECONDARY_USE_SETNAME" == "y" || "$SECONDARY_USE_SETNAME" == "Y" ]]; then
+        if [[ "$SECONDARY_USE_SETNAME" =~ ^[Yy]$ ]]; then
             print_prompt "Enter set-name value for secondary interface (e.g., lan1):"
             read -r SECONDARY_SETNAME
         fi
