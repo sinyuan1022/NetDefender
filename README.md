@@ -16,14 +16,16 @@
 
 ## 🖥️ System Requirements
 
-### Ryu Server
-- **Operating System**: Ubuntu 22.04+
-- **Python Version**: Python 3.9+
+NetDefender supports two deployment modes. Choose **one**:
 
-### Snort Server
-- **Operating System**: Ubuntu 22.04+
-- **Python Version**: Python 3.9+
+- **Ryu + Snort (Two-Server Deployment)**
+  - Ubuntu 22.04+
+  - Python 3.9+ (both servers)
 
+- **Single-Server Deployment**
+  - Ubuntu 22.04+
+  - Python 3.9+
+  
 ---
 
 ## ⚠️ Important Notes
