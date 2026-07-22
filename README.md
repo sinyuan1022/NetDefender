@@ -199,6 +199,11 @@ cd ./NetDefender/ryu/
 
 # Run the Ryu installation script
 bash ./ryu_install.sh
+
+
+#If you want to start it manually, please change the directory to `/NetDefender/ryu/` first, then execute:
+osken-manager ovs.py
+
 ```
 
 ---
@@ -224,6 +229,10 @@ cd ./NetDefender/snort/
 
 # Run the Snort installation script
 bash ./snort_install.sh
+
+
+#If you want to start it manually, please change the directory to `/NetDefender/snort/` first, then execute:
+python3 pigrelay.py
 ```
 
 ---
@@ -247,6 +256,10 @@ cd ./NetDefender/
 
 # Run the combined installation script
 bash ./singel.sh
+
+
+#If you want to start it manually, please change the directory to `/NetDefender/ryu/` first, then execute:
+osken-manager ovs.py
 ```
 
 ---
