@@ -232,6 +232,8 @@ bash ./snort_install.sh
 
 
 #If you want to start it manually, please change the directory to `/NetDefender/snort/` first, then execute:
+#INTERFACE = monitor interface name (e.g., ens33)
+snort -i $INTERFACE -A unsock -l /tmp -c /etc/snort/snort.conf
 python3 pigrelay.py
 ```
 
@@ -259,6 +261,8 @@ bash ./singel.sh
 
 
 #If you want to start it manually, please change the directory to `/NetDefender/ryu/` first, then execute:
+#INTERFACE = monitor interface name (e.g., ens33)
+snort -i $INTERFACE -A unsock -l /tmp -c /etc/snort/snort.conf
 osken-manager ovs.py
 ```
 
