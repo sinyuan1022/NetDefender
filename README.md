@@ -226,7 +226,7 @@ bash ./snort_install.sh
 
 ### 3. Single Server Deployment (Optional)
 
-> **Note**: This deployment mode is **currently not enabled** by default. Use this option only if you want to combine both Ryu and Snort on a single server.
+> **Note**: Use this option only if you want to combine both Ryu and Snort on a single server.
 
 ```bash
 # Switch to root user
