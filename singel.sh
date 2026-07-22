@@ -57,6 +57,7 @@ apt install -y \
     dnsmasq \
 	docker.io \
 	isc-dhcp-client \
+	snort\
 	python3 \
 	python3-pip
 
