@@ -21,10 +21,12 @@ NetDefender supports two deployment modes. Choose **one**:
 - **Ryu + Snort (Two-Server Deployment)**
   - Ubuntu 22.04+
   - Python 3.9+ (both servers)
+  - Memory 2GB+
 
 - **Single-Server Deployment**
   - Ubuntu 22.04+
   - Python 3.9+
+  - Memory 2GB+
   
 ---
 
