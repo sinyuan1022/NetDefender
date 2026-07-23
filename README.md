@@ -182,6 +182,14 @@ Please refer to the following URL:[Promiscuous Mode for Linux Virtual Adapters](
 
 ### 1. Ryu Server Installation
 
+> If you plan to install Ryu via SSH, it is recommended to use the second network interface.
+> A second network interface is optional. If you only have one network interface, after the installation is complete, clear the existing OpenFlow rules with:
+```bash
+ ovs-ofctl del-flows br0 -O OpenFlow13
+
+```
+> Then restart the Ryu controller and reconnect to Snort.
+
 Execute the following commands to install the Ryu controller:
 
 ```bash
