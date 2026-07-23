@@ -168,7 +168,7 @@ Each object in the `ports` array must contain the following fields:
 ---
 
 ## 🚀 Installation Guide
-### Prerequisites for VMware Workstation Pro (linux)
+### Prerequisites for VMware Workstation Pro (Linux Usage)
 
 1. **Run as root user**
 2. **Enable promiscuous mode** on the virtual network interface:
