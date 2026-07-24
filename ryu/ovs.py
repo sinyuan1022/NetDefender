@@ -1090,7 +1090,7 @@ class SimpleSwitchSnort(app_manager.OSKenApp):
                 self.return_packet(pkt, datapath, in_port, msg)
                 return
 
-            if tcp_pkt.dst_port == self.snort_port  and not (self.allowed_snort_ip == ipv4_pkt.src or self.allowed_snort_ip == ipv4_pkt.dst):
+            if tcp_pkt.dst_port == self.snort_port and self.allowed_snort_ip is not None and not (self.allowed_snort_ip == ipv4_pkt.src or self.allowed_snort_ip == ipv4_pkt.dst):
                 self.logger.warning(f"reject from {ipv4_pkt.src} snort or packets received from port {tcp_pkt.dst_port}")
                 self.alert_packet(pkt)
                 return
