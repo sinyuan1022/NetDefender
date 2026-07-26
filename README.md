@@ -274,6 +274,59 @@ snort -i $INTERFACE -A unsock -l /tmp -c /etc/snort/snort.conf
 osken-manager ovs.py
 ```
 
+## ⭐ Program Execution Demo
+
+### Ryu Server
+
+<img width="868" height="570" alt="image" src="https://github.com/user-attachments/assets/968cd29e-f6a5-412b-8bf8-d6b6f390f77c" />
+
+#### initialization
+ If you see the following message:
+ ```text
+[snort][INFO] Connect with ...
+```
+it means the controller has successfully connected to the **Snort Server**.
+ - **Dual-server mode:** This message **should appear** after the connection is established.
+ - **Single-server mode:** This message **will not appear**, because the controller communicates with Snort through a local Unix socket instead of a remote IP connection.
+**Important:** In **Single-server mode**, make sure the `unixsock` option is set to `True`.
+
+#### Container Assignment
+If you see output similar to the following:
+```text
+New active IP 192.168.1.101 for service dionaea. Total active IPs: 1
+Service dionaea configuration: max IPs per container=10, max containers=10
+Assigned client 192.168.1.101 to primary container dionaea0, current IP count: 1/10
+
+New active IP 192.168.1.101 for service ssh. Total active IPs: 1
+Service ssh configuration: max IPs per container=10, max containers=10
+Assigned client 192.168.1.101 to primary container ssh0, current IP count: 1/10
+```
+It indicates that the controller has successfully assigned the client connection to the correct container.
+The output provides the following information:
+- **Service name** (e.g., `dionaea`, `ssh`)
+- **Total active connections** for the service
+- **Maximum IPs (connections) allowed per container**
+- **Current maximum connection capacity. Additional containers will be automatically created when the capacity is insufficient
+- **Assigned container** handling the client connection
+- **Current number of connections** assigned to the container (e.g., `1/10`)
+<img width="1044" height="243" alt="image" src="https://github.com/user-attachments/assets/b0cfc393-140b-4b99-91d3-9d440dac031a" />
+
+#### Snort Alert Handling
+When the text above appears, it means that **Snort has detected a malicious packet**.
+Since there is **no corresponding service** for this packet, it is **not redirected to a container**.  
+Instead, the packet is **saved**. 
+
+The packet is saved under:`NetDefender/ryu/other` 
+
+### Snort Server
+<img width="804" height="68" alt="image" src="https://github.com/user-attachments/assets/a8647ecb-0c15-4e43-9c93-837ff43381e1" />
+
+If you see the following message:
+```text
+INFO:__main__:Start the network socket client....
+```
+When this line appears, it means that the **Snort server has successfully connected to the Ryu server**.
+
 ---
 
 ## 🔧 Configuration Best Practices
