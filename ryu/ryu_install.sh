@@ -191,7 +191,7 @@ while [ "$DNSMASQ_CONFIGURED" = false ]; do
     read -r DHCP_RANGE_START
     print_prompt "Enter the DHCP range end IP (e.g., 192.168.100.254):"
     read -r DHCP_RANGE_END
-    print_prompt "Enter the subnet mask (e.g., 255.255.255.0):"
+    print_prompt "Enter the DHCP subnet mask (e.g., 255.255.255.0):"
     read -r DHCP_SUBNET
     print_prompt "Enter DHCP lease time (number only or with h, e.g. 1, 12, 24h): "
 	read -r DHCP_LEASE
@@ -201,7 +201,7 @@ while [ "$DNSMASQ_CONFIGURED" = false ]; do
     #print_prompt "Enter the default gateway for DHCP clients (e.g., 192.168.100.1):"
     #read -r DHCP_GATEWAY
     #Broadcast (option 28) — auto-calculate or manual
-    print_prompt "Enter broadcast address (e.g., 192.168.100.255) or press Enter to auto-calculate:"
+    print_prompt "Enter DHCP broadcast address (e.g., 192.168.100.255) or press Enter to auto-calculate:"
     read -r DHCP_BROADCAST
     if [ -z "$DHCP_BROADCAST" ]; then
         # Auto-calculate broadcast from listen address /24
@@ -209,7 +209,7 @@ while [ "$DNSMASQ_CONFIGURED" = false ]; do
         print_status "Auto-calculated broadcast: $DHCP_BROADCAST"
     fi
     #DNS servers (option 6)
-    print_prompt "Enter DNS servers (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
+    print_prompt "Enter DHCP DNS servers (comma-separated, e.g., 8.8.8.8,8.8.4.4):"
     read -r DHCP_DNS_INPUT
     DHCP_DNS1=$(echo "$DHCP_DNS_INPUT" | cut -d',' -f1 | tr -d ' ')
     DHCP_DNS2=$(echo "$DHCP_DNS_INPUT" | cut -d',' -f2 | tr -d ' ')
